@@ -751,5 +751,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register admin routes
+  await registerAdminRoutes(app);
+  
+  // Register bot routes  
+  await registerBotRoutes(app);
+
   return httpServer;
 }
