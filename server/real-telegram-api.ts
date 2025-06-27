@@ -67,22 +67,9 @@ export class RealTelegramApiClient {
 
       console.log('Initializing Telegram client...');
       
-      await this.client.start({
-        phoneNumber: async () => {
-          throw new Error('Phone number should be provided via sendOTP');
-        },
-        password: async () => {
-          throw new Error('Password should be handled separately');
-        },
-        phoneCode: async () => {
-          throw new Error('Phone code should be provided via verifyOTP');
-        },
-        onError: (err: any) => {
-          console.error('Telegram client error:', err);
-        },
-      });
-
-      console.log('Telegram client initialized successfully');
+      // Connect to Telegram without starting authentication flow
+      await this.client.connect();
+      console.log('Telegram client connected successfully');
 
     } catch (error) {
       console.error('Failed to initialize Telegram client:', error);
@@ -107,8 +94,8 @@ export class RealTelegramApiClient {
       const result = await this.client.invoke(
         new Api.auth.SendCode({
           phoneNumber: cleanPhone,
-          apiId: parseInt(process.env.TELEGRAM_API_ID || ''),
-          apiHash: process.env.TELEGRAM_API_HASH || '',
+          apiId: 23697291,
+          apiHash: 'b3a10e33ef507e864ed7018df0495ca8',
           settings: new Api.CodeSettings({
             allowFlashcall: false,
             currentNumber: false,

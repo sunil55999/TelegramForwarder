@@ -45,30 +45,12 @@ export class RealTelegramClient {
 
   async initializeClient(sessionString?: string): Promise<void> {
     try {
-      let rawApiId = process.env.TELEGRAM_API_ID || '';
-      let apiHash = process.env.TELEGRAM_API_HASH || '';
+      // Configure Telegram API credentials directly
+      const apiId = 23697291;
+      const apiHash = 'b3a10e33ef507e864ed7018df0495ca8';
       
-      console.log('Raw TELEGRAM_API_ID from env:', rawApiId);
-      console.log('Raw TELEGRAM_API_HASH exists:', !!apiHash);
-      
-      // Temporary override with correct credentials while environment updates
-      if (rawApiId === 'b3a10e33ef507e864ed7018df0495ca8') {
-        console.log('Detected old credentials, using correct ones temporarily');
-        rawApiId = '23697291';
-        apiHash = 'b3a10e33ef507e864ed7018df0495ca8';
-      }
-      
-      // More detailed validation
-      if (!rawApiId || !apiHash) {
-        throw new Error('Telegram API credentials not configured - missing environment variables');
-      }
-      
-      const apiId = parseInt(rawApiId);
-      console.log('Using API ID:', apiId, 'isNaN:', isNaN(apiId));
-      
-      if (isNaN(apiId) || apiId <= 0) {
-        throw new Error(`Invalid TELEGRAM_API_ID: "${rawApiId}" is not a valid number. Expected numeric API ID from my.telegram.org`);
-      }
+      console.log('Using configured API ID:', apiId);
+      console.log('API Hash configured:', !!apiHash);
 
       const session = new StringSession(sessionString || '');
       
@@ -110,8 +92,8 @@ export class RealTelegramClient {
       const result = await this.client.invoke(
         new Api.auth.SendCode({
           phoneNumber: cleanPhone,
-          apiId: parseInt(process.env.TELEGRAM_API_ID || ''),
-          apiHash: process.env.TELEGRAM_API_HASH || '',
+          apiId: 23697291,
+          apiHash: 'b3a10e33ef507e864ed7018df0495ca8',
           settings: new Api.CodeSettings({
             allowFlashcall: false,
             currentNumber: false,
@@ -148,9 +130,39 @@ export class RealTelegramClient {
 
     } catch (error: any) {
       console.error('Failed to send OTP:', error);
+      
+      // Handle specific Telegram errors
+      if (error.message.includes('FloodWaitError') || error.message.includes('FLOOD_WAIT')) {
+        const waitTime = error.seconds || 0;
+        const hours = Math.floor(waitTime / 3600);
+        const minutes = Math.floor((waitTime % 3600) / 60);
+        
+        return {
+          success: false,
+          message: `Rate limit reached. Please wait ${hours}h ${minutes}m before requesting another OTP for this number.`,
+          error: 'FLOOD_WAIT',
+        };
+      }
+      
+      if (error.message.includes('PHONE_NUMBER_INVALID')) {
+        return {
+          success: false,
+          message: 'Invalid phone number format. Please check your number and try again.',
+          error: 'PHONE_NUMBER_INVALID',
+        };
+      }
+      
+      if (error.message.includes('PHONE_NUMBER_BANNED')) {
+        return {
+          success: false,
+          message: 'This phone number is restricted from using Telegram.',
+          error: 'PHONE_NUMBER_BANNED',
+        };
+      }
+      
       return {
         success: false,
-        message: 'Failed to send OTP',
+        message: 'Failed to send OTP. Please try again or contact support.',
         error: error.message,
       };
     }
