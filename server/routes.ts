@@ -122,6 +122,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: { ...req.user!, password: undefined } });
   });
 
+  // Debug endpoint to check environment variables
+  app.get("/api/auth/debug-env", async (req, res) => {
+    const rawApiId = process.env.TELEGRAM_API_ID || '';
+    const parsedApiId = parseInt(rawApiId);
+    res.json({
+      telegram_api_id: process.env.TELEGRAM_API_ID ? 'set' : 'not set',
+      telegram_api_hash: process.env.TELEGRAM_API_HASH ? 'set' : 'not set',
+      raw_api_id: rawApiId,
+      raw_api_id_length: rawApiId.length,
+      parsed_api_id: parsedApiId,
+      is_nan: isNaN(parsedApiId),
+      is_valid: !!(parsedApiId && !isNaN(parsedApiId) && process.env.TELEGRAM_API_HASH)
+    });
+  });
+
+  // Public Telegram Authentication Routes (for new users)
+  app.post("/api/auth/send-otp", async (req, res) => {
+    try {
+      const { phoneNumber, countryCode } = req.body;
+      
+      if (!phoneNumber || !countryCode) {
+        return res.status(400).json({ message: "Phone number and country code are required" });
+      }
+
+      const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/[^\d]/g, '')}`;
+      
+      // Create a temporary user account for OTP verification
+      const hashedPassword = await bcrypt.hash(Math.random().toString(36), 10);
+      const user = await storage.createUser({
+        username: `temp_${fullPhoneNumber.slice(-4)}_${Date.now()}`,
+        email: `temp_${fullPhoneNumber.slice(-4)}_${Date.now()}@telegram.temp`,
+        password: hashedPassword,
+        plan: 'free',
+      });
+      console.log('Created temporary user:', user.id, 'for phone:', fullPhoneNumber);
+      
+      // Create session and get real Telegram API client
+      const sessionId = await telegramClient.createSession(user.id, fullPhoneNumber);
+      const client = await telegramClient.getClient(sessionId, user.id);
+      
+      // Send real OTP via Telegram servers
+      const result = await client.sendOTP(fullPhoneNumber);
+      
+      // Include session info for verification step
+      if (result.success) {
+        res.json({ 
+          ...result, 
+          sessionId,
+          phoneNumber: fullPhoneNumber,
+          tempUserId: user.id
+        });
+      } else {
+        res.json(result);
+      }
+    } catch (error) {
+      console.error('Send OTP error:', error);
+      res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const { sessionId, otpCode, phoneCodeHash, phoneNumber, username, email, tempUserId } = req.body;
+      
+      if (!sessionId || !otpCode) {
+        return res.status(400).json({ message: "Session ID and OTP code are required" });
+      }
+
+      // Get real Telegram API client using the temp user ID
+      const client = await telegramClient.getClient(sessionId, tempUserId);
+      
+      // Verify real OTP with Telegram servers
+      const result = await client.verifyOTP(otpCode, phoneCodeHash);
+
+      if (result.success && result.sessionId) {
+        // Get the temporary user that was created during send-otp
+        let user = await storage.getUser(tempUserId);
+        
+        if (!user) {
+          return res.status(400).json({ message: "Session expired, please request a new OTP" });
+        }
+
+        // Update user with real information if provided
+        if (username || email) {
+          user = await storage.updateUser(user.id, {
+            username: username || user.username,
+            email: email || user.email,
+          }) || user;
+        }
+
+        // Update session with verified status
+        await sessionManager.addSession(result.sessionId);
+        
+        // Create JWT token
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+
+        // Log activity
+        await storage.createActivityLog({
+          userId: user.id,
+          telegramSessionId: result.sessionId,
+          type: 'telegram_auth',
+          action: 'verify_otp',
+          message: `Successfully authenticated Telegram account`,
+          metadata: { sessionId: result.sessionId, phoneNumber }
+        });
+
+        res.json({ 
+          ...result, 
+          user: { ...user, password: undefined },
+          token 
+        });
+      } else {
+        res.json(result);
+      }
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      res.status(500).json({ message: "Failed to verify OTP" });
+    }
+  });
+
   // Telegram Authentication Routes
   app.post("/api/telegram/send-otp", authenticateToken, async (req: AuthRequest, res) => {
     try {

@@ -45,11 +45,22 @@ export class RealTelegramClient {
 
   async initializeClient(sessionString?: string): Promise<void> {
     try {
-      const apiId = parseInt(process.env.TELEGRAM_API_ID || '');
+      const rawApiId = process.env.TELEGRAM_API_ID || '';
       const apiHash = process.env.TELEGRAM_API_HASH || '';
-
-      if (!apiId || !apiHash) {
-        throw new Error('Telegram API credentials not configured');
+      
+      console.log('Raw TELEGRAM_API_ID:', rawApiId);
+      console.log('Raw TELEGRAM_API_HASH exists:', !!apiHash);
+      
+      // More detailed validation
+      if (!rawApiId || !apiHash) {
+        throw new Error('Telegram API credentials not configured - missing environment variables');
+      }
+      
+      const apiId = parseInt(rawApiId);
+      console.log('Parsed API ID:', apiId, 'isNaN:', isNaN(apiId));
+      
+      if (isNaN(apiId) || apiId <= 0) {
+        throw new Error(`Invalid TELEGRAM_API_ID: "${rawApiId}" is not a valid number. Expected numeric API ID from my.telegram.org`);
       }
 
       const session = new StringSession(sessionString || '');
