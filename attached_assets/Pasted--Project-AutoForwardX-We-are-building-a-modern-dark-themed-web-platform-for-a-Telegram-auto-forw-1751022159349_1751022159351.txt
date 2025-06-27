@@ -1,0 +1,83 @@
+📌 Project: AutoForwardX
+We are building a modern, dark-themed web platform for a Telegram auto-forwarding service.
+
+✅ Required Pages:
+Home Page (Landing Page)
+
+Features Page (Detailed Feature List)
+
+🖥️ Home Page Requirements:
+Design: Use Tailwind CSS with a Dark Theme (Mobile Responsive, Fast Load Time)
+
+Core Sections:
+
+Hero Section with strong headline and CTA (Start Now / Login)
+
+Pricing Overview (Free, Pro: $3.50/mo, Business: $9.50/mo)
+
+Supported Payment Methods:
+
+PayPal (for USD payments)
+
+NowPayments (for Crypto payments like BTC, ETH, USDT)
+
+Showcase Seamless Multi-Account Telegram Forwarding
+
+Brief Feature Highlights with Learn More button linking to Features Page
+
+Testimonials or User Reviews
+
+Clean Footer with basic links: Terms, Privacy, Contact
+
+Remove Traditional Email Sign-Up/Login
+
+Instead:
+
+Implement a Login via Telegram Phone Number with Country Code Selector (use the method discussed earlier with flag selector, OTP input, and direct Telegram authentication)
+
+📂 Features Page Requirements:
+Design: Tailwind CSS Dark Theme, organized, easy to read
+
+Sections:
+
+Advanced Forwarding Options (Chain Forwarding, Copy Mode, Save-only Channel Support)
+
+Smart Content Management (Sentence Blocking, Image Blocking, Watermarking)
+
+Real-Time Sync, Session Auto-Recovery, History Cloning
+
+Multi-Account Management (Handle Multiple Telegram Accounts from one dashboard)
+
+User Dashboard with Real-Time Logs and Drag-and-Drop Setup
+
+Telegram Bot Control for Tasks and Notifications
+
+48-Hour Active Pair Reports
+
+Admin Global Announcement Tool (Send Custom Promotions to Free Users' Channels)
+
+SEO and Admin Control Features (Dynamic Sitemap, Blog, Google Search Console Integration)
+
+Payment via PayPal and Crypto (NowPayments)
+
+Call-to-Action: Link back to Home Page or Login Flow
+
+🔑 Login System Specification:
+Do not use Email Sign-Up/Login
+
+Login Flow:
+
+Country code + Phone number input (with flag selector)
+
+OTP verification via Telegram (Telethon/Pyrogram backend)
+
+On successful login, create user session
+
+Login system should feel modern, fast, and secure, integrated smoothly with the dark theme UI
+
+🛠️ Additional Notes:
+Payment gateways should be clearly mentioned on both pages (PayPal for USD, NowPayments for Crypto)
+
+SEO-optimized HTML structure with clean meta tags and page speed focus
+
+Fully mobile-responsive and fast-loading design using Tailwind CSS

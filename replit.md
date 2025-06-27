@@ -2,7 +2,7 @@
 
 ## Overview
 
-AutoForwardX is a full-stack web application designed for managing Telegram message forwarding operations. The system allows users to create and manage forwarding pairs between Telegram channels, monitor activity, and control forwarding behavior with customizable settings like delays, copy modes, and silent forwarding.
+AutoForwardX is a comprehensive web platform for automated Telegram message forwarding with a modern dark-themed interface. The system includes a marketing landing page, detailed features showcase, Telegram phone authentication, and a full dashboard for managing forwarding operations between channels with advanced customization options.
 
 ## System Architecture
 
@@ -30,10 +30,15 @@ The application uses three main entities:
 
 ## Key Components
 
+### Public Pages & Marketing
+- **Landing Page**: Modern dark-themed homepage with hero section, feature highlights, pricing overview, and testimonials
+- **Features Page**: Comprehensive feature showcase organized in categories with detailed descriptions and benefits
+- **SEO Optimization**: Meta tags, structured content, and mobile-responsive design
+
 ### Authentication System
-- JWT-based authentication with secure token storage
-- User registration and login functionality
-- Protected route middleware for API endpoints
+- **Telegram Phone Authentication**: Multi-step login flow with country code selection, OTP verification, and account setup
+- **Legacy JWT Support**: Maintained for backward compatibility with existing API endpoints
+- Protected route middleware for dashboard access
 - Client-side auth context for user state management
 
 ### Forwarding Management
@@ -99,7 +104,16 @@ The application uses three main entities:
 
 ## Changelog
 
-- June 27, 2025. Initial setup
+- June 27, 2025: Initial setup with dashboard and authentication
+- June 27, 2025: Added landing page and features showcase with Telegram phone authentication
+
+## Recent Changes
+
+✓ Landing Page: Modern dark-themed homepage with hero section, pricing, testimonials
+✓ Features Page: Comprehensive showcase of all platform capabilities organized by category  
+✓ Telegram Authentication: Multi-step phone verification flow with country code selection
+✓ Updated Routing: Added public marketing pages alongside protected dashboard
+✓ Payment Integration: Clear presentation of PayPal and crypto payment options
 
 ## User Preferences
 
