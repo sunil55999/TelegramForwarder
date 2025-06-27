@@ -14,7 +14,8 @@ import {
   Star,
   Phone,
   CreditCard,
-  Bitcoin
+  Bitcoin,
+  MessageSquare
 } from 'lucide-react';
 
 export default function Home() {
@@ -160,21 +161,35 @@ export default function Home() {
               Message Forwarding
             </h1>
             <p className="text-xl text-gray-300 mb-8">
-              Forward messages between unlimited Telegram channels with smart automation, 
-              real-time sync, and multi-account management. No coding required.
+              Instantly forward messages across unlimited Telegram channels with smart automation, 
+              real-time sync, and multi-account management — no coding required.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/login">
-                <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-3">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 hover:scale-105 transition-all duration-200 text-lg px-8 py-3 shadow-lg hover:shadow-xl">
                   <Phone className="w-5 h-5 mr-2" />
                   Start with Telegram
                 </Button>
               </Link>
-              <a href="#features">
-                <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-slate-800 text-lg px-8 py-3">
+              <Link href="/features">
+                <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-slate-800 hover:scale-105 transition-all duration-200 text-lg px-8 py-3">
                   Learn More
                 </Button>
-              </a>
+              </Link>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6 text-sm text-gray-400">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span>99.9% Uptime</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Shield className="w-4 h-4" />
+                <span>Secure Payments</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Phone className="w-4 h-4" />
+                <span>Telegram OTP Login</span>
+              </div>
             </div>
           </div>
           
@@ -266,7 +281,7 @@ export default function Home() {
             {plans.map((plan, index) => (
               <Card 
                 key={index} 
-                className={`relative bg-slate-800/50 border-slate-700 hover:bg-slate-800/80 transition-all ${
+                className={`relative bg-slate-800/50 border-slate-700 hover:bg-slate-800/80 hover:scale-105 hover:shadow-2xl transition-all duration-300 ${
                   plan.popular ? 'ring-2 ring-primary' : ''
                 }`}
               >
@@ -294,17 +309,24 @@ export default function Home() {
                     ))}
                   </ul>
                   
-                  <Link href="/login">
-                    <Button 
-                      className={`w-full ${
-                        plan.popular 
-                          ? 'bg-primary hover:bg-primary/90' 
-                          : 'bg-slate-700 hover:bg-slate-600 text-white'
-                      }`}
-                    >
-                      {plan.cta}
-                    </Button>
-                  </Link>
+                  <div className="space-y-3">
+                    <Link href="/login">
+                      <Button 
+                        className={`w-full hover:scale-105 transition-all duration-200 ${
+                          plan.popular 
+                            ? 'bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl' 
+                            : 'bg-slate-700 hover:bg-slate-600 text-white'
+                        }`}
+                      >
+                        {plan.cta}
+                      </Button>
+                    </Link>
+                    <Link href="/features">
+                      <Button variant="ghost" className="w-full text-gray-400 hover:text-white text-sm">
+                        View Features
+                      </Button>
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -389,32 +411,61 @@ export default function Home() {
                 </div>
                 <span className="text-xl font-bold text-white">AutoForwardX</span>
               </div>
-              <p className="text-gray-400 max-w-md">
+              <p className="text-gray-400 max-w-md mb-6">
                 The most reliable and feature-rich Telegram auto-forwarding platform. 
                 Trusted by thousands of users worldwide.
               </p>
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-400 text-sm font-medium">System Running Smoothly</span>
+              </div>
+              <div className="flex space-x-4">
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <Send className="w-5 h-5" />
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <MessageSquare className="w-5 h-5" />
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <Globe className="w-5 h-5" />
+                </a>
+              </div>
             </div>
             
             <div>
-              <h3 className="text-white font-semibold mb-4">Product</h3>
+              <h3 className="text-white font-semibold mb-4">Quick Links</h3>
               <ul className="space-y-2">
-                <li><Link href="/features" className="text-gray-400 hover:text-white">Features</Link></li>
-                <li><a href="#pricing" className="text-gray-400 hover:text-white">Pricing</a></li>
-                <li><Link href="/login" className="text-gray-400 hover:text-white">Login</Link></li>
+                <li><Link href="/" className="text-gray-400 hover:text-white transition-colors">Home</Link></li>
+                <li><Link href="/features" className="text-gray-400 hover:text-white transition-colors">Features</Link></li>
+                <li><a href="#pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">FAQ</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Contact</a></li>
               </ul>
             </div>
             
             <div>
               <h3 className="text-white font-semibold mb-4">Legal</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white">Terms of Service</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white">Privacy Policy</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white">Contact</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Cookie Policy</a></li>
               </ul>
+              
+              <h3 className="text-white font-semibold mb-4 mt-8">Payments</h3>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-gray-400">
+                  <CreditCard className="w-4 h-4" />
+                  <span className="text-xs">PayPal</span>
+                </div>
+                <div className="flex items-center space-x-2 text-gray-400">
+                  <Bitcoin className="w-4 h-4" />
+                  <span className="text-xs">Crypto</span>
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="mt-8 pt-8 border-t border-slate-700 text-center">
+          <div className="border-t border-slate-700 mt-12 pt-8 text-center">
             <p className="text-gray-400">
               © 2025 AutoForwardX. All rights reserved.
             </p>
