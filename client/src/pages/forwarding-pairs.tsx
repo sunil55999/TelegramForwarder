@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Plus, Search, Filter, Layers, Zap, Activity } from 'lucide-react';
 import Sidebar from '@/components/layout/sidebar';
-import ChannelSelector from '@/components/channel-selector';
-import EnhancedForwardingCard from '@/components/enhanced-forwarding-card';
+import AttractiveChannelSelector from '@/components/attractive-channel-selector';
+import AttractiveForwardingCard from '@/components/attractive-forwarding-card';
 import NewPairModal from '@/components/modals/new-pair-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -234,39 +234,48 @@ export default function ForwardingPairs() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-900">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <Sidebar />
       
       <main className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="surface border-b border-slate-700 px-6 py-4">
-          <div className="flex items-center justify-between">
+        {/* Enhanced Header with Gradient */}
+        <header className="relative bg-gradient-to-r from-slate-800/80 via-slate-800/60 to-slate-800/80 backdrop-blur-sm border-b border-slate-700/50 px-8 py-6">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5" />
+          <div className="relative flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-text-primary">Forwarding Management</h2>
-              <p className="text-text-secondary">Create and manage your message forwarding configurations</p>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Forwarding Management
+              </h2>
+              <p className="text-slate-400 mt-1">Create and manage your message forwarding configurations with style</p>
             </div>
             <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="border-green-500 text-green-400">
-                {enhancedPairs.filter((p: any) => p.isActive).length} Active
+              <Badge className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/40 text-green-300 px-4 py-2">
+                {enhancedPairs.filter((p: any) => p.isActive).length} Active Pairs
               </Badge>
-              <Badge variant="outline" className="border-slate-500 text-slate-400">
-                {enhancedPairs.length} Total
+              <Badge className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-500/40 text-blue-300 px-4 py-2">
+                {enhancedPairs.length} Total Configured
               </Badge>
             </div>
           </div>
         </header>
 
-        {/* Content */}
-        <div className="flex-1 p-6">
+        {/* Enhanced Content */}
+        <div className="flex-1 p-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-slate-800">
-              <TabsTrigger value="existing" className="flex items-center space-x-2">
+            <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-slate-800/80 to-slate-700/80 backdrop-blur-sm border border-slate-700/50 p-1 rounded-xl">
+              <TabsTrigger 
+                value="existing" 
+                className="flex items-center space-x-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:border-blue-500/30 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+              >
                 <Layers className="w-4 h-4" />
-                <span>Existing Pairs</span>
+                <span className="font-medium">Existing Pairs</span>
               </TabsTrigger>
-              <TabsTrigger value="create" className="flex items-center space-x-2">
+              <TabsTrigger 
+                value="create" 
+                className="flex items-center space-x-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500/20 data-[state=active]:to-emerald-500/20 data-[state=active]:border-green-500/30 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+              >
                 <Plus className="w-4 h-4" />
-                <span>Create New</span>
+                <span className="font-medium">Create New</span>
               </TabsTrigger>
             </TabsList>
 
@@ -292,60 +301,68 @@ export default function ForwardingPairs() {
                 </Button>
               </div>
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <Card className="bg-slate-800 border-slate-700">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <Activity className="w-8 h-8 text-green-400" />
-                      <div>
-                        <p className="text-sm text-gray-400">Active Pairs</p>
-                        <p className="text-2xl font-bold text-white">
-                          {enhancedPairs.filter((p: any) => p.isActive).length}
-                        </p>
-                      </div>
+              {/* Enhanced Quick Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <Card className="relative overflow-hidden bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-green-600/10 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <CardContent className="relative p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <Activity className="w-10 h-10 text-green-400 group-hover:scale-110 transition-transform duration-300" />
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-green-300/80 font-medium mb-1">Active Pairs</p>
+                      <p className="text-3xl font-bold text-white">
+                        {enhancedPairs.filter((p: any) => p.isActive).length}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-slate-800 border-slate-700">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <Layers className="w-8 h-8 text-blue-400" />
-                      <div>
-                        <p className="text-sm text-gray-400">Total Pairs</p>
-                        <p className="text-2xl font-bold text-white">{enhancedPairs.length}</p>
-                      </div>
+                <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-purple-500/10 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300 group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <CardContent className="relative p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <Layers className="w-10 h-10 text-blue-400 group-hover:scale-110 transition-transform duration-300" />
+                      <div className="w-2 h-2 bg-blue-400 rounded-full" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-300/80 font-medium mb-1">Total Pairs</p>
+                      <p className="text-3xl font-bold text-white">{enhancedPairs.length}</p>
                     </div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-slate-800 border-slate-700">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <Zap className="w-8 h-8 text-yellow-400" />
-                      <div>
-                        <p className="text-sm text-gray-400">Messages Today</p>
-                        <p className="text-2xl font-bold text-white">
-                          {enhancedPairs.reduce((sum: number, p: any) => sum + Math.floor(p.messagesForwarded * 0.3), 0)}
-                        </p>
-                      </div>
+                <Card className="relative overflow-hidden bg-gradient-to-br from-yellow-500/10 via-orange-500/5 to-yellow-600/10 border border-yellow-500/20 hover:border-yellow-400/40 transition-all duration-300 group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <CardContent className="relative p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <Zap className="w-10 h-10 text-yellow-400 group-hover:scale-110 transition-transform duration-300" />
+                      <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-yellow-300/80 font-medium mb-1">Messages Today</p>
+                      <p className="text-3xl font-bold text-white">
+                        {enhancedPairs.reduce((sum: number, p: any) => sum + Math.floor(p.messagesForwarded * 0.3), 0).toLocaleString()}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-slate-800 border-slate-700">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
-                        <span className="text-slate-900 font-bold text-sm">%</span>
+                <Card className="relative overflow-hidden bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-purple-600/10 border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <CardContent className="relative p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <span className="text-slate-900 font-bold text-lg">%</span>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Success Rate</p>
-                        <p className="text-2xl font-bold text-white">
-                          {Math.round(enhancedPairs.reduce((sum: number, p: any) => sum + p.successRate, 0) / enhancedPairs.length || 0)}%
-                        </p>
-                      </div>
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-purple-300/80 font-medium mb-1">Success Rate</p>
+                      <p className="text-3xl font-bold text-white">
+                        {Math.round(enhancedPairs.reduce((sum: number, p: any) => sum + p.successRate, 0) / enhancedPairs.length || 0)}%
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -358,7 +375,7 @@ export default function ForwardingPairs() {
                     pair.sourceChannel.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     pair.destinationChannel.toLowerCase().includes(searchQuery.toLowerCase())
                   ).map((pair: any) => (
-                    <EnhancedForwardingCard
+                    <AttractiveForwardingCard
                       key={pair.id}
                       pair={pair}
                       onToggle={handlePairToggle}
@@ -387,20 +404,26 @@ export default function ForwardingPairs() {
               )}
             </TabsContent>
 
-            {/* Create New Pair Tab */}
-            <TabsContent value="create" className="mt-6">
-              <Card className="bg-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center space-x-2">
-                    <Plus className="w-5 h-5" />
-                    <span>Create New Forwarding Pair</span>
+            {/* Enhanced Create New Pair Tab */}
+            <TabsContent value="create" className="mt-8">
+              <Card className="relative overflow-hidden bg-gradient-to-br from-slate-800/60 via-slate-800/40 to-slate-900/60 border border-slate-700/50 backdrop-blur-sm">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-green-500/5" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500" />
+                <CardHeader className="relative">
+                  <CardTitle className="text-white flex items-center space-x-3 text-2xl">
+                    <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center">
+                      <Plus className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                      Create New Forwarding Pair
+                    </span>
                   </CardTitle>
-                  <p className="text-gray-400">
-                    Select source and destination channels to create a new forwarding pair
+                  <p className="text-slate-400 mt-2 text-lg">
+                    Select source and destination channels to create a new automated forwarding configuration
                   </p>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <ChannelSelector
+                <CardContent className="relative p-8">
+                  <AttractiveChannelSelector
                     channels={mockChannels}
                     selectedSources={selectedSources}
                     selectedDestinations={selectedDestinations}
