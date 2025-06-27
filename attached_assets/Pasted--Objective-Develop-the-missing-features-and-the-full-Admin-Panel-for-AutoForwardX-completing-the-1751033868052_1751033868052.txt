@@ -1,0 +1,154 @@
+🎯 Objective:
+Develop the missing features and the full Admin Panel for AutoForwardX, completing the Telegram auto-forwarding platform with real-time control, error handling, SEO management, advanced user reporting, and payment processing.
+
+✅ Pending Features to Implement:
+1. Admin Panel (High Priority)
+Build a dark-themed Admin Dashboard using Tailwind CSS.
+
+Core Admin Features:
+
+View all users and their plans.
+
+Manual session management (Pause, Resume, Restart Sessions).
+
+Real-time session and task status monitoring.
+
+Manual error fixing (restart tasks, clear queues).
+
+Global announcements: Send custom promotional messages to all Free Plan users.
+
+Plan management: Upgrade/downgrade users, change limits, create coupons.
+
+IP Whitelisting: Restrict admin panel access to approved IP addresses.
+
+Payment history tracking (PayPal and NowPayments).
+
+SEO Management Tools:
+
+Sitemap generator
+
+Blog manager (create/edit posts)
+
+Meta tag and schema management
+
+System health indicators (queue status, session uptime, API rate limit usage).
+
+2. User Dashboard Improvements
+Build a Joined Channels Selector:
+
+Show all joined Telegram channels.
+
+Search, multi-select, and drag-and-drop channel selector.
+
+Real-time channel status (active, left, restricted).
+
+Add Per-Pair Controls:
+
+Pause/Resume/Stop forwarding tasks directly from the dashboard.
+
+Option to edit source, destination, and delay without deleting the pair.
+
+Add In-App Notifications:
+
+Show success, error, and session health notifications inside the dashboard.
+
+3. Advanced Queue & Error Management
+Add Bulk Management:
+
+Bulk add/remove forwarding pairs.
+
+Bulk pause/resume forwarding tasks.
+
+Build Real-Time Error Classification:
+
+Categorize errors (Telegram rate limit, session drop, forwarding failure).
+
+Admin dashboard should offer one-click recovery options.
+
+Add Smart Self-Healing Controls:
+
+Admin can configure retry intervals, max retries, and queue prioritization via the dashboard.
+
+4. Analytics & Reporting
+Build Exportable Reports:
+
+Users can export 48-hour activity reports in CSV or PDF.
+
+Admin can download user-level reports.
+
+Add Custom Analytics Filters:
+
+Filter stats by account, by pair, by time range.
+
+5. Payment System Completion
+Add Payment Confirmation Pages:
+
+After payment success/failure, show confirmation pages (for PayPal and Crypto).
+
+Build Plan Upgrade/Downgrade Flow:
+
+Users can switch plans without account disruption.
+
+6. Security Enhancements
+IP-Based Admin Access Control.
+
+Anti-Ban System:
+
+Auto-throttle forwarding speed if Telegram API limits are approaching.
+
+System alerts if rate-limit signs are detected.
+
+7. Marketing and SEO Enhancements
+Build Full Blog Management:
+
+Create, edit, publish blog posts from the admin panel.
+
+Build Schema Integration:
+
+JSON-LD schema for blog and pricing pages.
+
+SEO Monitoring:
+
+Track Google indexing and sitemap status inside the admin panel.
+
+8. Telegram Bot Improvements
+Add Multi-Language Support:
+
+Bot should allow /language switching by user.
+
+Add Session Expiry Notifications:
+
+Notify users when their session is about to expire.
+
+9. Integration Features
+Add Webhook Event Broadcasting:
+
+Send forwarding events to external systems via webhooks.
+
+Add API Key Management:
+
+Admin can generate API keys with rate limits for third-party integrations.
+
+🔑 System Requirements:
+Backend: Python (FastAPI preferred)
+
+Database: PostgreSQL or SQLite
+
+UI: Tailwind CSS Dark Theme
+
+Real-time API: Async support, RESTful structure
+
+Payment Integration: PayPal (USD), NowPayments (Crypto)
+
+🔥 Focus Points:
+Admin Panel must offer complete real-time system control.
+
+User dashboard must support joined channel selection and per-pair task management.
+
+Error handling must be proactive, with admin-side fixes and self-healing options.
+
+SEO system must support real-time sitemap, blog, and meta updates.
+
+Security features like IP whitelisting and anti-ban speed throttling must be included.
+
+Payment upgrade/downgrade must be seamless.
