@@ -6,6 +6,8 @@ import {
   blockedSentences,
   blockedImages,
   forwardingQueue,
+  contentFilters,
+  payments,
   type User, 
   type InsertUser, 
   type TelegramSession,
@@ -19,7 +21,11 @@ import {
   type BlockedImage,
   type InsertBlockedImage,
   type ForwardingQueue,
-  type InsertForwardingQueue
+  type InsertForwardingQueue,
+  type ContentFilter,
+  type InsertContentFilter,
+  type Payment,
+  type InsertPayment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, count } from "drizzle-orm";
@@ -93,6 +99,10 @@ export interface IStorage {
     successRate: number;
     connectedAccounts: number;
   }>;
+
+  // Missing methods for error recovery
+  testConnection(): Promise<boolean>;
+  getForwardingPairsByTelegramSession(sessionId: number): Promise<ForwardingPair[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -437,6 +447,24 @@ export class DatabaseStorage implements IStorage {
   async getForwardingPairById(id: number): Promise<ForwardingPair | undefined> {
     const [pair] = await db.select().from(forwardingPairs).where(eq(forwardingPairs.id, id));
     return pair || undefined;
+  }
+
+  // Test database connection
+  async testConnection(): Promise<boolean> {
+    try {
+      await db.select().from(users).limit(1);
+      return true;
+    } catch (error) {
+      console.error('Database connection test failed:', error);
+      return false;
+    }
+  }
+
+  // Get forwarding pairs by telegram session
+  async getForwardingPairsByTelegramSession(sessionId: number): Promise<ForwardingPair[]> {
+    return await db.select()
+      .from(forwardingPairs)
+      .where(eq(forwardingPairs.telegramSessionId, sessionId));
   }
 }
 

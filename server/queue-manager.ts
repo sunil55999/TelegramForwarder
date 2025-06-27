@@ -1,6 +1,6 @@
 import { storage } from "./storage";
 import { telegramClient } from "./telegram-real";
-import type { ForwardingPair, ForwardingQueue, InsertForwardingQueue } from "@shared/schema";
+import type { ForwardingPair, ForwardingQueue, InsertForwardingQueue, TelegramMessage } from "@shared/schema";
 
 export interface QueueItem {
   id: number;
@@ -88,7 +88,7 @@ export class QueueManager {
       // Create queue item
       const queueItem: InsertForwardingQueue = {
         forwardingPairId: forwardingPair.id,
-        messageId: message.id,
+        messageId: message.id?.toString() || 'unknown',
         sourceChat,
         destinationChat,
         messageContent: message,
@@ -104,9 +104,10 @@ export class QueueManager {
         forwardingPairId: forwardingPair.id,
         telegramSessionId: forwardingPair.telegramSessionId,
         type: 'message_queued',
+        action: 'queue_message',
         message: `Message queued for forwarding with ${forwardingPair.delay}s delay`,
         metadata: { 
-          messageId: message.id,
+          messageId: message.id?.toString() || 'unknown',
           sourceChat,
           destinationChat,
           delay: forwardingPair.delay
@@ -245,6 +246,7 @@ export class QueueManager {
           forwardingPairId: pair.id,
           telegramSessionId: pair.telegramSessionId,
           type: 'message_forwarded',
+          action: 'forward_message',
           message: `Message successfully forwarded from ${item.sourceChat} to ${item.destinationChat}`,
           metadata: {
             messageId: item.messageId,
@@ -271,18 +273,18 @@ export class QueueManager {
         // Copy mode: send as new message
         return await telegramClient.copyMessage(
           pair.telegramSessionId,
+          pair.userId,
           message,
-          item.destinationChat,
-          pair.silentMode
+          item.destinationChat
         );
       } else {
         // Forward mode: forward original message
         return await telegramClient.forwardMessage(
           pair.telegramSessionId,
+          pair.userId,
+          message,
           item.sourceChat,
-          item.destinationChat,
-          item.messageId,
-          pair.silentMode
+          item.destinationChat
         );
       }
     } catch (error) {
@@ -364,6 +366,22 @@ export class QueueManager {
   // Set custom rate limit for a pair
   setRateLimit(pairId: number, rateLimit: RateLimitConfig): void {
     this.rateLimits.set(pairId, rateLimit);
+  }
+
+  // Set session throttle multiplier for anti-ban system
+  setSessionThrottle(sessionId: number, multiplier: number): void {
+    // Apply throttle to all pairs using this session
+    this.rateLimits.forEach((rateLimit, pairId) => {
+      const adjustedRateLimit: RateLimitConfig = {
+        messagesPerMinute: Math.floor(this.DEFAULT_RATE_LIMIT.messagesPerMinute / multiplier),
+        messagesPerHour: Math.floor(this.DEFAULT_RATE_LIMIT.messagesPerHour / multiplier),
+        burstLimit: Math.floor(this.DEFAULT_RATE_LIMIT.burstLimit / multiplier),
+        cooldownPeriod: this.DEFAULT_RATE_LIMIT.cooldownPeriod * multiplier
+      };
+      this.rateLimits.set(pairId, adjustedRateLimit);
+    });
+    
+    console.log(`Applied ${multiplier}x throttle to session ${sessionId}`);
   }
 
   // Get queue statistics

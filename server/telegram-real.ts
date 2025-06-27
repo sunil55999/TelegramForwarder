@@ -284,6 +284,11 @@ export class RealTelegramClient {
     }
   }
 
+  // Public getter for client access
+  getClient(): TelegramClient | null {
+    return this.client;
+  }
+
   static async disconnectAll(): Promise<void> {
     const instances = Array.from(RealTelegramClient.instances.values());
     for (const instance of instances) {
@@ -328,6 +333,122 @@ export const telegramClient = {
       } catch (error) {
         console.error(`Health check failed for session ${session.id}:`, error);
       }
+    }
+  },
+
+  // Missing methods for error recovery system
+  async checkSessionHealth(sessionId: number, userId: number): Promise<boolean> {
+    try {
+      const client = await RealTelegramClient.getInstance(sessionId, userId);
+      return await client.checkHealth();
+    } catch (error) {
+      console.error(`Session health check failed for ${sessionId}:`, error);
+      return false;
+    }
+  },
+
+  async reconnectSession(sessionId: number, userId: number): Promise<boolean> {
+    try {
+      const client = await RealTelegramClient.getInstance(sessionId, userId);
+      
+      // Get session data from database
+      const [session] = await db.select()
+        .from(telegramSessions)
+        .where(eq(telegramSessions.id, sessionId));
+        
+      if (!session) {
+        console.error(`Session ${sessionId} not found in database`);
+        return false;
+      }
+
+      // Disconnect existing client
+      await client.disconnect();
+      
+      // Reinitialize with stored session
+      await client.initializeClient(session.sessionString || undefined);
+      
+      // Test the connection
+      const isHealthy = await client.checkHealth();
+      
+      if (isHealthy) {
+        await db.update(telegramSessions)
+          .set({
+            isActive: true,
+            lastHealthCheck: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(telegramSessions.id, sessionId));
+        
+        console.log(`Successfully reconnected session ${sessionId}`);
+        return true;
+      } else {
+        console.log(`Failed to reconnect session ${sessionId} - health check failed`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error reconnecting session ${sessionId}:`, error);
+      return false;
+    }
+  },
+
+  async disconnectSession(sessionId: number, userId: number): Promise<void> {
+    try {
+      const client = await RealTelegramClient.getInstance(sessionId, userId);
+      await client.disconnect();
+      
+      await db.update(telegramSessions)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(telegramSessions.id, sessionId));
+        
+      console.log(`Disconnected session ${sessionId}`);
+    } catch (error) {
+      console.error(`Error disconnecting session ${sessionId}:`, error);
+    }
+  },
+
+  // Missing message forwarding methods for queue manager
+  async copyMessage(sessionId: number, userId: number, message: any, destinationChat: string): Promise<boolean> {
+    try {
+      const client = await RealTelegramClient.getInstance(sessionId, userId);
+      const telegramClient = client.getClient();
+      if (!telegramClient) {
+        throw new Error('Telegram client not initialized');
+      }
+
+      // Copy message to destination
+      await telegramClient.sendMessage(destinationChat, {
+        message: message.text || message.caption || '',
+        // Additional message properties would be handled here
+      });
+
+      return true;
+    } catch (error) {
+      console.error(`Error copying message:`, error);
+      return false;
+    }
+  },
+
+  async forwardMessage(sessionId: number, userId: number, message: any, sourceChat: string, destinationChat: string): Promise<boolean> {
+    try {
+      const client = await RealTelegramClient.getInstance(sessionId, userId);
+      const telegramClient = client.getClient();
+      if (!telegramClient) {
+        throw new Error('Telegram client not initialized');
+      }
+
+      // Forward message to destination
+      await telegramClient.forwardMessages(destinationChat, {
+        messages: [message.id],
+        fromPeer: sourceChat,
+      });
+
+      return true;
+    } catch (error) {
+      console.error(`Error forwarding message:`, error);
+      return false;
     }
   },
 };

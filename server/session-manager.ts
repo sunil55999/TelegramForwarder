@@ -126,6 +126,7 @@ export class SessionManager {
             userId: session.userId,
             telegramSessionId: sessionId,
             type: 'session_deactivated',
+            action: 'session_health_check',
             message: `Session ${session.accountName} deactivated due to consecutive failures`,
             metadata: { consecutiveFailures: status.consecutiveFailures }
           });
@@ -238,6 +239,100 @@ export class SessionManager {
     
     this.healthStatuses.clear();
     console.log('Session Manager shutdown complete');
+  }
+
+  // Add missing methods for error handler integration
+  async pauseSession(sessionId: number, waitTimeSeconds: number): Promise<void> {
+    try {
+      const session = await storage.getTelegramSession(sessionId, 0);
+      if (!session) return;
+
+      // Pause all forwarding pairs for this session
+      const pairs = await storage.getForwardingPairsByTelegramSession(sessionId);
+      for (const pair of pairs) {
+        await storage.pauseForwardingPair(pair.id, pair.userId);
+      }
+
+      // Schedule automatic resume
+      setTimeout(async () => {
+        try {
+          for (const pair of pairs) {
+            await storage.resumeForwardingPair(pair.id, pair.userId);
+          }
+          console.log(`[SESSION] Auto-resumed session ${sessionId} after ${waitTimeSeconds}s`);
+        } catch (error) {
+          console.error(`[SESSION] Failed to auto-resume session ${sessionId}:`, error);
+        }
+      }, waitTimeSeconds * 1000);
+
+      await storage.createActivityLog({
+        userId: session.userId,
+        telegramSessionId: sessionId,
+        type: 'session_paused',
+        action: 'pause_session',
+        message: `Session paused for ${waitTimeSeconds} seconds`,
+        metadata: { waitTimeSeconds, sessionId },
+      });
+
+      console.log(`[SESSION] Paused session ${sessionId} for ${waitTimeSeconds} seconds`);
+    } catch (error) {
+      console.error(`[SESSION] Failed to pause session ${sessionId}:`, error);
+    }
+  }
+
+  async reconnectSession(sessionId: number): Promise<void> {
+    try {
+      const session = await storage.getTelegramSession(sessionId, 0);
+      if (!session) return;
+
+      // Attempt to reconnect through telegram client
+      const reconnected = await telegramClient.reconnectSession(sessionId, session.userId);
+      
+      if (reconnected) {
+        // Update health status
+        const status = this.healthStatuses.get(sessionId);
+        if (status) {
+          status.isHealthy = true;
+          status.consecutiveFailures = 0;
+          status.lastCheck = new Date();
+          this.healthStatuses.set(sessionId, status);
+        }
+
+        await storage.updateTelegramSession(sessionId, session.userId, {
+          isActive: true,
+          lastHealthCheck: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await storage.createActivityLog({
+          userId: session.userId,
+          telegramSessionId: sessionId,
+          type: 'session_reconnected',
+          action: 'reconnect_session',
+          message: `Session successfully reconnected`,
+          metadata: { sessionId },
+        });
+
+        console.log(`[SESSION] Successfully reconnected session ${sessionId}`);
+      } else {
+        console.log(`[SESSION] Failed to reconnect session ${sessionId}`);
+      }
+    } catch (error) {
+      console.error(`[SESSION] Error reconnecting session ${sessionId}:`, error);
+    }
+  }
+
+  markSessionUnhealthy(sessionId: number, reason: string): void {
+    const status = this.healthStatuses.get(sessionId);
+    if (status) {
+      status.isHealthy = false;
+      status.errorCount++;
+      status.consecutiveFailures++;
+      status.lastCheck = new Date();
+      this.healthStatuses.set(sessionId, status);
+      
+      console.log(`[SESSION] Marked session ${sessionId} as unhealthy: ${reason}`);
+    }
   }
 
   // Get session statistics

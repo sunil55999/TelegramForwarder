@@ -3,6 +3,69 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
+// Telegram Message Interface
+export interface TelegramMessage {
+  id: number;
+  text?: string;
+  caption?: string;
+  media?: {
+    type: 'photo' | 'video' | 'document' | 'audio' | 'voice' | 'video_note' | 'sticker' | 'animation';
+    file_id: string;
+    file_unique_id: string;
+    width?: number;
+    height?: number;
+    duration?: number;
+    file_size?: number;
+    mime_type?: string;
+    thumb?: {
+      file_id: string;
+      file_unique_id: string;
+      width: number;
+      height: number;
+      file_size?: number;
+    };
+  };
+  entities?: Array<{
+    type: string;
+    offset: number;
+    length: number;
+    url?: string;
+    user?: any;
+    language?: string;
+  }>;
+  date: number;
+  chat: {
+    id: number;
+    title?: string;
+    username?: string;
+    type: 'private' | 'group' | 'supergroup' | 'channel';
+  };
+  from?: {
+    id: number;
+    is_bot: boolean;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+  };
+  forward_from?: any;
+  forward_from_chat?: any;
+  forward_date?: number;
+  reply_to_message?: TelegramMessage;
+  edit_date?: number;
+  message_id?: number;
+}
+
+export interface TelegramChannel {
+  id: string;
+  title: string;
+  username?: string;
+  type: 'channel' | 'group' | 'supergroup';
+  participants_count?: number;
+  description?: string;
+  photo?: string;
+  access_hash?: string;
+}
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),

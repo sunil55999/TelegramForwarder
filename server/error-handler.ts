@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
+import { sessionManager } from './session-manager';
+import { queueManager } from './queue-manager';
 
 export interface ErrorReport {
   id: string;
@@ -206,30 +208,141 @@ export class ErrorHandler {
 
   private async recoverTelegramError(errorReport: ErrorReport): Promise<void> {
     if (errorReport.sessionId) {
-      // Attempt to reconnect Telegram session
-      console.log(`Attempting to recover Telegram session ${errorReport.sessionId}`);
-      // Implementation would trigger session reconnection
+      try {
+        console.log(`[RECOVERY] Attempting Telegram session recovery ${errorReport.sessionId}`);
+        
+        // Check if it's a rate limit error
+        if (errorReport.message.includes('FLOOD_WAIT') || errorReport.message.includes('rate limit')) {
+          const waitMatch = errorReport.message.match(/FLOOD_WAIT_(\d+)/);
+          const waitTime = waitMatch ? parseInt(waitMatch[1]) : 60;
+          
+          // Pause session temporarily
+          await sessionManager.pauseSession(errorReport.sessionId, waitTime);
+          
+          await storage.createActivityLog({
+            userId: errorReport.userId || 0,
+            type: 'auto_recovery',
+            action: 'telegram_rate_limit_recovery',
+            message: `Session paused for ${waitTime} seconds due to rate limit`,
+            details: `Auto-recovery for error ${errorReport.id}`,
+            metadata: { errorId: errorReport.id, waitTime, sessionId: errorReport.sessionId },
+          });
+        } else if (errorReport.message.includes('session') || errorReport.message.includes('auth')) {
+          // Try to reconnect session
+          await sessionManager.reconnectSession(errorReport.sessionId);
+        }
+      } catch (recoveryError) {
+        console.error(`[RECOVERY] Telegram recovery failed:`, recoveryError);
+      }
     }
   }
 
   private async recoverDatabaseError(errorReport: ErrorReport): Promise<void> {
-    // Attempt database reconnection
-    console.log('Attempting database reconnection...');
-    // Implementation would trigger database reconnection
+    try {
+      console.log('[RECOVERY] Attempting database recovery...');
+      
+      if (errorReport.message.includes('connection') || errorReport.message.includes('timeout')) {
+        const testResult = await storage.testConnection();
+        
+        if (testResult) {
+          await storage.createActivityLog({
+            userId: errorReport.userId || 0,
+            type: 'auto_recovery',
+            action: 'database_connection_restored',
+            message: `Database connection restored`,
+            details: `Auto-recovery for error ${errorReport.id}`,
+            metadata: { errorId: errorReport.id },
+          });
+        } else {
+          setTimeout(async () => {
+            try {
+              const retryResult = await storage.testConnection();
+              if (retryResult) {
+                console.log(`[RECOVERY] Database connection restored after retry`);
+              }
+            } catch (retryError) {
+              console.error(`[RECOVERY] Database retry failed:`, retryError);
+            }
+          }, 30000);
+        }
+      }
+    } catch (recoveryError) {
+      console.error(`[RECOVERY] Database recovery failed:`, recoveryError);
+    }
   }
 
   private async recoverForwardingError(errorReport: ErrorReport): Promise<void> {
     if (errorReport.forwardingPairId) {
-      // Retry forwarding operation
-      console.log(`Retrying forwarding for pair ${errorReport.forwardingPairId}`);
-      // Implementation would retry the forwarding operation
+      try {
+        console.log(`[RECOVERY] Attempting forwarding recovery for pair ${errorReport.forwardingPairId}`);
+        
+        const pair = await storage.getForwardingPairById(errorReport.forwardingPairId);
+        
+        if (pair && pair.isActive) {
+          if (errorReport.message.includes('timeout') || 
+              errorReport.message.includes('network') ||
+              errorReport.message.includes('temporary')) {
+            
+            await storage.pauseForwardingPair(errorReport.forwardingPairId, errorReport.userId || pair.userId);
+            
+            setTimeout(async () => {
+              try {
+                await storage.resumeForwardingPair(errorReport.forwardingPairId!, errorReport.userId || pair.userId);
+                
+                await storage.createActivityLog({
+                  userId: errorReport.userId || pair.userId,
+                  type: 'auto_recovery',
+                  action: 'forwarding_pair_reset',
+                  message: `Forwarding pair reset after temporary error`,
+                  details: `Auto-recovery for error ${errorReport.id}`,
+                  metadata: { errorId: errorReport.id, pairId: errorReport.forwardingPairId },
+                });
+              } catch (resumeError) {
+                console.error(`[RECOVERY] Failed to resume forwarding pair:`, resumeError);
+              }
+            }, 10000);
+          }
+        }
+      } catch (recoveryError) {
+        console.error(`[RECOVERY] Forwarding recovery failed:`, recoveryError);
+      }
     }
   }
 
   private async notifyAdmins(errorReport: ErrorReport): Promise<void> {
-    // Send notification to administrators
-    console.log(`[CRITICAL ERROR] ${errorReport.id}: ${errorReport.message}`);
-    // Implementation would send email/Telegram notification to admins
+    try {
+      console.log(`[CRITICAL ERROR] ${errorReport.id}: ${errorReport.message}`);
+      
+      // Create admin notification in database
+      await storage.createActivityLog({
+        userId: 0, // System user
+        type: 'admin_notification',
+        action: 'critical_error_alert',
+        message: `Critical error: ${errorReport.message}`,
+        details: `Error ID: ${errorReport.id}, Type: ${errorReport.errorType}, Severity: ${errorReport.severity}`,
+        metadata: {
+          errorId: errorReport.id,
+          errorType: errorReport.errorType,
+          severity: errorReport.severity,
+          userId: errorReport.userId,
+          sessionId: errorReport.sessionId,
+          stack: errorReport.stack
+        },
+      });
+
+      // If telegram bot is available, send notification
+      try {
+        const { telegramBot } = await import('./bot-routes');
+        if (telegramBot) {
+          const adminMessage = `🚨 CRITICAL ERROR ALERT\n\nError ID: ${errorReport.id}\nType: ${errorReport.errorType}\nMessage: ${errorReport.message}\nTime: ${errorReport.timestamp.toISOString()}`;
+          await telegramBot.broadcastToAdmins(adminMessage);
+        }
+      } catch (botError) {
+        console.log('Telegram bot not available for admin notifications');
+      }
+    } catch (notificationError) {
+      console.error(`[NOTIFICATION] Failed to notify admins:`, notificationError);
+    }
   }
 
   async resolveError(errorId: string, resolution: string, resolvedBy?: number): Promise<boolean> {
