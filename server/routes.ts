@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { telegramClient } from "./telegram-client";
 import { sessionManager } from "./session-manager";
 import { queueManager } from "./queue-manager";
+import { realTelegramApiManager } from "./real-telegram-api";
 import { paymentGateway } from "./payment-gateway";
 import { channelManager } from "./channel-manager";
 import { errorHandler } from "./error-handler";
@@ -131,26 +132,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Phone number and country code are required" });
       }
 
-      const result = await telegramClient.sendOTP({ phoneNumber, countryCode });
+      // Create session and get real Telegram API client
+      const fullPhoneNumber = `+${countryCode}${phoneNumber.replace(/[^\d]/g, '')}`;
+      const sessionId = await realTelegramApiManager.createSession(req.user!.id, fullPhoneNumber);
+      const client = await realTelegramApiManager.getClient(sessionId, req.user!.id);
+      
+      // Send real OTP via Telegram servers
+      const result = await client.sendOTP(fullPhoneNumber);
+      
+      if (result.success) {
+        await storage.createActivityLog({
+          userId: req.user!.id,
+          telegramSessionId: sessionId,
+          type: 'telegram_auth',
+          action: 'send_otp',
+          message: `OTP sent to ${fullPhoneNumber}`,
+          metadata: { phoneNumber: fullPhoneNumber }
+        });
+      }
+      
       res.json(result);
     } catch (error) {
+      console.error('Send OTP error:', error);
       res.status(500).json({ message: "Failed to send OTP" });
     }
   });
 
   app.post("/api/telegram/verify-otp", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const { phoneNumber, otpCode } = req.body;
+      const { sessionId, otpCode, phoneCodeHash } = req.body;
       
-      if (!phoneNumber || !otpCode) {
-        return res.status(400).json({ message: "Phone number and OTP code are required" });
+      if (!sessionId || !otpCode) {
+        return res.status(400).json({ message: "Session ID and OTP code are required" });
       }
 
-      const result = await telegramClient.verifyOTP({
-        phoneNumber,
-        otpCode,
-        userId: req.user!.id
-      });
+      // Get real Telegram API client
+      const client = await realTelegramApiManager.getClient(sessionId, req.user!.id);
+      
+      // Verify real OTP with Telegram servers
+      const result = await client.verifyOTP(otpCode, phoneCodeHash);
 
       if (result.success && result.sessionId) {
         await sessionManager.addSession(result.sessionId);
@@ -158,14 +178,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createActivityLog({
           userId: req.user!.id,
           telegramSessionId: result.sessionId,
-          type: 'telegram_login',
-          message: `Successfully connected Telegram account ${result.accountName}`,
-          metadata: { phoneNumber }
+          type: 'telegram_auth',
+          action: 'verify_otp',
+          message: `Successfully authenticated Telegram account`,
+          metadata: { sessionId: result.sessionId }
         });
       }
 
       res.json(result);
     } catch (error) {
+      console.error('Verify OTP error:', error);
       res.status(500).json({ message: "Failed to verify OTP" });
     }
   });
