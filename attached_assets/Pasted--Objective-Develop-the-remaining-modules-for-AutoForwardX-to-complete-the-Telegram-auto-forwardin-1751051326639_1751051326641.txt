@@ -1,0 +1,119 @@
+🎯 Objective:
+Develop the remaining modules for AutoForwardX to complete the Telegram auto-forwarding platform. The project is approximately 60-65% complete and now requires the following critical components to be built.
+
+✅ Key Missing Features to Build:
+1. 🚨 Admin Panel (High Priority)
+Design a dark-themed Admin Dashboard using Tailwind CSS.
+
+Build full user management:
+
+View, suspend, upgrade, and delete users.
+
+View all forwarding pairs and session details per user.
+
+Implement session health visual tracking (active, paused, failed sessions).
+
+Add manual error fixing options:
+
+Force restart sessions
+
+Clear stuck queues
+
+Add global announcements feature:
+
+Send custom messages to all Free Plan users’ destination channels.
+
+Build IP Whitelisting for admin login.
+
+2. ✅ Joined Channel Selector
+Display all joined Telegram channels in the dashboard.
+
+Include:
+
+Search functionality
+
+Multi-select support
+
+Drag-and-drop pairing system
+
+Enable live status display (joined, restricted, left).
+
+3. ✅ Per-Pair Task Controls
+Add ability to:
+
+Pause, Resume, Stop each forwarding pair individually.
+
+Edit pair settings (source, destination, delays) without deleting the pair.
+
+Show real-time forwarding status (active, paused, failed).
+
+4. ✅ Bulk Management Tools
+Build bulk management options:
+
+Bulk add, bulk remove forwarding pairs.
+
+Bulk pause/resume forwarding tasks.
+
+5. ✅ Analytics & Reporting
+Develop:
+
+Exportable reports in CSV and PDF formats.
+
+Custom analytics filters (filter by user, account, forwarding pair, time range).
+
+6. ✅ Webhook and API Key Management
+Build Webhook broadcasting system:
+
+Send real-time forwarding events to third-party URLs.
+
+Develop API Key Management:
+
+Allow admin to generate API keys with plan-based rate limits.
+
+Secure third-party access.
+
+7. ✅ Telegram Anti-Ban Safety System
+Build auto-throttling system:
+
+Detect rate-limit signs from Telegram.
+
+Auto-reduce forwarding speed if limits are approached.
+
+Send real-time system alerts when near rate-limits.
+
+8. ✅ Telegram Bot Multi-Language Support
+Add /language command to allow users to switch bot language.
+
+Ensure bot supports at least English, Hindi, and Spanish (expandable later).
+
+9. ✅ SEO & Blog Management System
+Build an integrated blog management system for admin:
+
+Create, edit, delete blog posts from the dashboard.
+
+Add sitemap auto-generation and submission.
+
+Add meta tag and schema editors for SEO.
+
+Integrate Google Search Console API for indexing and performance tracking.
+
+🔑 System Requirements:
+Backend: Python (FastAPI recommended)
+
+UI: Tailwind CSS Dark Theme
+
+Payment Gateways: PayPal (USD), NowPayments (Crypto)
+
+Database: PostgreSQL or SQLite
+
+Real-time API: Async operations, RESTful structure
+
+🔥 Focus Points:
+The Admin Panel must offer full system control and error management.
+
+The User Dashboard must include channel selection, per-pair control, and task editing.
+
+The Anti-Ban System, Webhooks, Bulk Management, and SEO tools must be fully operational.
+
+Real-time system monitoring and instant error resolution must be prioritized.
+
