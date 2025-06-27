@@ -133,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create session and get real Telegram API client
-      const fullPhoneNumber = `+${countryCode}${phoneNumber.replace(/[^\d]/g, '')}`;
+      const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/[^\d]/g, '')}`;
       const sessionId = await realTelegramApiManager.createSession(req.user!.id, fullPhoneNumber);
       const client = await realTelegramApiManager.getClient(sessionId, req.user!.id);
       
