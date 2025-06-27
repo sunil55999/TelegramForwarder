@@ -1,4 +1,4 @@
-import { TelegramApi } from 'telegram';
+import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { Api } from 'telegram/tl';
 import { db } from './db';
@@ -48,27 +48,16 @@ export class RealTelegramApiClient {
 
   async initializeClient(sessionString?: string): Promise<void> {
     try {
-      const rawApiId = process.env.TELEGRAM_API_ID || '';
-      const apiHash = process.env.TELEGRAM_API_HASH || '';
+      // Configure Telegram API credentials
+      const apiId = 23697291;
+      const apiHash = 'b3a10e33ef507e864ed7018df0495ca8';
       
-      console.log('Raw TELEGRAM_API_ID:', rawApiId);
-      console.log('Raw TELEGRAM_API_HASH exists:', !!apiHash);
-      
-      // More detailed validation
-      if (!rawApiId || !apiHash) {
-        throw new Error('Telegram API credentials not configured - missing environment variables');
-      }
-      
-      const apiId = parseInt(rawApiId);
-      console.log('Parsed API ID:', apiId, 'isNaN:', isNaN(apiId));
-      
-      if (isNaN(apiId) || apiId <= 0) {
-        throw new Error(`Invalid TELEGRAM_API_ID: "${rawApiId}" is not a valid number. Expected numeric API ID from my.telegram.org`);
-      }
+      console.log('Using configured API ID:', apiId);
+      console.log('API Hash configured:', !!apiHash);
 
       const session = new StringSession(sessionString || '');
       
-      this.client = new (TelegramApi as any)(session, apiId, apiHash, {
+      this.client = new TelegramClient(session, apiId, apiHash, {
         deviceModel: 'AutoForwardX',
         systemVersion: '1.0',
         appVersion: '1.0.0',

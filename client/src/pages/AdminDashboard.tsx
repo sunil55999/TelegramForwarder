@@ -279,7 +279,7 @@ export default function AdminDashboard() {
                   <DollarSign className="h-4 w-4 text-yellow-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">${stats?.revenue?.monthlyRevenue || 0}</div>
+                  <div className="text-2xl font-bold">${typeof stats?.revenue === 'object' ? stats.revenue.monthlyRevenue || 0 : stats?.revenue || 0}</div>
                   <p className="text-xs text-gray-400">
                     Total earnings
                   </p>
