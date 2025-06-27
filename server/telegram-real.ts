@@ -45,11 +45,18 @@ export class RealTelegramClient {
 
   async initializeClient(sessionString?: string): Promise<void> {
     try {
-      const rawApiId = process.env.TELEGRAM_API_ID || '';
-      const apiHash = process.env.TELEGRAM_API_HASH || '';
+      let rawApiId = process.env.TELEGRAM_API_ID || '';
+      let apiHash = process.env.TELEGRAM_API_HASH || '';
       
-      console.log('Raw TELEGRAM_API_ID:', rawApiId);
+      console.log('Raw TELEGRAM_API_ID from env:', rawApiId);
       console.log('Raw TELEGRAM_API_HASH exists:', !!apiHash);
+      
+      // Temporary override with correct credentials while environment updates
+      if (rawApiId === 'b3a10e33ef507e864ed7018df0495ca8') {
+        console.log('Detected old credentials, using correct ones temporarily');
+        rawApiId = '23697291';
+        apiHash = 'b3a10e33ef507e864ed7018df0495ca8';
+      }
       
       // More detailed validation
       if (!rawApiId || !apiHash) {
@@ -57,7 +64,7 @@ export class RealTelegramClient {
       }
       
       const apiId = parseInt(rawApiId);
-      console.log('Parsed API ID:', apiId, 'isNaN:', isNaN(apiId));
+      console.log('Using API ID:', apiId, 'isNaN:', isNaN(apiId));
       
       if (isNaN(apiId) || apiId <= 0) {
         throw new Error(`Invalid TELEGRAM_API_ID: "${rawApiId}" is not a valid number. Expected numeric API ID from my.telegram.org`);

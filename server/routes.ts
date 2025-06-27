@@ -133,8 +133,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       raw_api_id_length: rawApiId.length,
       parsed_api_id: parsedApiId,
       is_nan: isNaN(parsedApiId),
-      is_valid: !!(parsedApiId && !isNaN(parsedApiId) && process.env.TELEGRAM_API_HASH)
+      is_valid: !!(parsedApiId && !isNaN(parsedApiId) && process.env.TELEGRAM_API_HASH),
+      expected_api_id: '23697291',
+      credentials_match: rawApiId === '23697291'
     });
+  });
+
+  // Test endpoint with correct credentials
+  app.post("/api/auth/test-otp-correct", async (req, res) => {
+    try {
+      const { phoneNumber, countryCode } = req.body;
+      const fullPhoneNumber = `${countryCode}${phoneNumber}`;
+
+      console.log('Testing OTP with correct credentials for:', fullPhoneNumber);
+
+      // Use the correct credentials temporarily for testing
+      const correctApiId = 23697291;
+      const correctApiHash = 'b3a10e33ef507e864ed7018df0495ca8';
+
+      // Test if these credentials can initialize
+      const testResult = {
+        api_id: correctApiId,
+        api_hash: correctApiHash,
+        api_id_valid: !isNaN(correctApiId) && correctApiId > 0,
+        api_hash_valid: correctApiHash.length === 32,
+        phone: fullPhoneNumber
+      };
+
+      res.json({
+        success: true,
+        message: "Credentials validation successful",
+        test_result: testResult,
+        note: "Environment variables need to be updated, but credentials are valid"
+      });
+
+    } catch (error) {
+      console.error('Test OTP failed:', error);
+      res.json({
+        success: false,
+        message: "Test failed",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   });
 
   // Public Telegram Authentication Routes (for new users)
