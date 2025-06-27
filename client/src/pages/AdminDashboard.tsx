@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { adminApiRequest, removeAdminToken } from "@/lib/adminAuth";
+import { useLocation } from "wouter";
 import UserManagement from "@/components/UserManagement";
 import AdvancedAnalytics from "@/components/AdvancedAnalytics";
 import SystemMonitoring from "@/components/SystemMonitoring";
@@ -70,28 +72,42 @@ export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  // Fetch admin dashboard data
+  const handleLogout = () => {
+    removeAdminToken();
+    toast({
+      title: "Logged out",
+      description: "You have been logged out of the admin panel",
+    });
+    setLocation('/admin/login');
+  };
+
+  // Fetch admin dashboard data using admin authentication
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ['/api/admin/dashboard'],
+    queryFn: () => adminApiRequest('GET', '/api/admin/dashboard'),
   });
 
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
+    queryFn: () => adminApiRequest('GET', '/api/admin/users'),
   });
 
   const { data: systemHealth, isLoading: healthLoading } = useQuery<SystemHealth>({
     queryKey: ['/api/admin/system/health'],
+    queryFn: () => adminApiRequest('GET', '/api/admin/system/health'),
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const { data: errors, isLoading: errorsLoading } = useQuery<any[]>({
     queryKey: ['/api/admin/errors'],
+    queryFn: () => adminApiRequest('GET', '/api/admin/errors'),
   });
 
-  // Mutations for admin actions
+  // Mutations for admin actions using admin authentication
   const pauseQueueMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/system/queue/pause'),
+    mutationFn: () => adminApiRequest('POST', '/api/admin/system/queue/pause'),
     onSuccess: () => {
       toast({ title: "Queue paused successfully" });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/system/health'] });
@@ -99,7 +115,7 @@ export default function AdminDashboard() {
   });
 
   const resumeQueueMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/system/queue/resume'),
+    mutationFn: () => adminApiRequest('POST', '/api/admin/system/queue/resume'),
     onSuccess: () => {
       toast({ title: "Queue resumed successfully" });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/system/health'] });
@@ -107,7 +123,7 @@ export default function AdminDashboard() {
   });
 
   const clearFailedQueueMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/system/queue/clear-failed'),
+    mutationFn: () => adminApiRequest('POST', '/api/admin/system/queue/clear-failed'),
     onSuccess: () => {
       toast({ title: "Failed queue items cleared" });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/system/health'] });
@@ -115,7 +131,7 @@ export default function AdminDashboard() {
   });
 
   const broadcastToFreeUsersMutation = useMutation({
-    mutationFn: (message: string) => apiRequest('POST', '/api/admin/broadcast/free-users', { message }),
+    mutationFn: (message: string) => adminApiRequest('POST', '/api/admin/broadcast/free-users', { message }),
     onSuccess: () => {
       toast({ title: "Message broadcasted to free users" });
     },
@@ -123,7 +139,7 @@ export default function AdminDashboard() {
 
   const updateUserPlanMutation = useMutation({
     mutationFn: ({ userId, plan }: { userId: number; plan: string }) => 
-      apiRequest('PUT', `/api/admin/users/${userId}/plan`, { plan }),
+      adminApiRequest('PUT', `/api/admin/users/${userId}/plan`, { plan }),
     onSuccess: () => {
       toast({ title: "User plan updated successfully" });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
@@ -164,9 +180,18 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-gray-400">Manage users, monitor system health, and control operations</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+            <p className="text-gray-400">Manage users, monitor system health, and control operations</p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 border-red-600 text-white"
+          >
+            Logout
+          </Button>
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">

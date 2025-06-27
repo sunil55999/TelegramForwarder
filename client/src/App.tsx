@@ -12,6 +12,7 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import ForwardingPairs from "@/pages/forwarding-pairs";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminLogin from "@/pages/AdminLogin";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -26,6 +27,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Redirect to="/login" />;
+  }
+
+  return <>{children}</>;
+}
+
+function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+  const adminToken = localStorage.getItem('adminToken');
+
+  if (!adminToken) {
+    return <Redirect to="/admin/login" />;
   }
 
   return <>{children}</>;
@@ -50,10 +61,16 @@ function Router() {
           <ForwardingPairs />
         </ProtectedRoute>
       </Route>
-      <Route path="/admin">
-        <ProtectedRoute>
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/dashboard">
+        <AdminProtectedRoute>
           <AdminDashboard />
-        </ProtectedRoute>
+        </AdminProtectedRoute>
+      </Route>
+      <Route path="/admin">
+        <AdminProtectedRoute>
+          <AdminDashboard />
+        </AdminProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>
