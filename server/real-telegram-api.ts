@@ -1,4 +1,4 @@
-import TelegramApi from 'telegram';
+import { TelegramApi } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { Api } from 'telegram/tl';
 import { db } from './db';

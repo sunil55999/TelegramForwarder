@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { telegramClient } from "./telegram-client";
+import { telegramClient } from "./telegram-real";
 import type { TelegramSession } from "@shared/schema";
 
 export interface SessionHealthStatus {

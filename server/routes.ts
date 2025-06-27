@@ -1,10 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { telegramClient } from "./telegram-client";
+import { telegramClient } from "./telegram-real";
 import { sessionManager } from "./session-manager";
 import { queueManager } from "./queue-manager";
-import { realTelegramApiManager } from "./real-telegram-api";
 import { paymentGateway } from "./payment-gateway";
 import { channelManager } from "./channel-manager";
 import { errorHandler } from "./error-handler";
@@ -56,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services
   await sessionManager.initialize();
   await queueManager.initialize();
-  await telegramClient.initializeSessions();
+  await telegramClient.healthCheckAll();
 
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
@@ -134,8 +133,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create session and get real Telegram API client
       const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/[^\d]/g, '')}`;
-      const sessionId = await realTelegramApiManager.createSession(req.user!.id, fullPhoneNumber);
-      const client = await realTelegramApiManager.getClient(sessionId, req.user!.id);
+      const sessionId = await telegramClient.createSession(req.user!.id, fullPhoneNumber);
+      const client = await telegramClient.getClient(sessionId, req.user!.id);
       
       // Send real OTP via Telegram servers
       const result = await client.sendOTP(fullPhoneNumber);
@@ -167,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get real Telegram API client
-      const client = await realTelegramApiManager.getClient(sessionId, req.user!.id);
+      const client = await telegramClient.getClient(sessionId, req.user!.id);
       
       // Verify real OTP with Telegram servers
       const result = await client.verifyOTP(otpCode, phoneCodeHash);
@@ -238,7 +237,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Session not found" });
       }
 
-      const channels = await telegramClient.getJoinedChannels(sessionId, req.user!.id);
+      const client = await telegramClient.getClient(sessionId, req.user!.id);
+      const channels = await client.getChannels();
       res.json(channels);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch channels" });

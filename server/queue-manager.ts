@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { telegramClient, type TelegramMessage } from "./telegram-client";
+import { telegramClient } from "./telegram-real";
 import type { ForwardingPair, ForwardingQueue, InsertForwardingQueue } from "@shared/schema";
 
 export interface QueueItem {

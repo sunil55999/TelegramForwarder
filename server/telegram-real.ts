@@ -23,8 +23,8 @@ export interface TelegramChannel {
   isMegagroup: boolean;
 }
 
-export class TelegramClientWrapper {
-  private static instances: Map<number, TelegramClientWrapper> = new Map();
+export class RealTelegramClient {
+  private static instances: Map<number, RealTelegramClient> = new Map();
   private client: TelegramClient | null = null;
   private sessionId: number;
   private userId: number;
@@ -35,12 +35,12 @@ export class TelegramClientWrapper {
     this.userId = userId;
   }
 
-  static async getInstance(sessionId: number, userId: number): Promise<TelegramClient> {
-    if (!TelegramClient.instances.has(sessionId)) {
-      const instance = new TelegramClient(sessionId, userId);
-      TelegramClient.instances.set(sessionId, instance);
+  static async getInstance(sessionId: number, userId: number): Promise<RealTelegramClient> {
+    if (!RealTelegramClient.instances.has(sessionId)) {
+      const instance = new RealTelegramClient(sessionId, userId);
+      RealTelegramClient.instances.set(sessionId, instance);
     }
-    return TelegramClient.instances.get(sessionId)!;
+    return RealTelegramClient.instances.get(sessionId)!;
   }
 
   async initializeClient(sessionString?: string): Promise<void> {
@@ -54,7 +54,7 @@ export class TelegramClientWrapper {
 
       const session = new StringSession(sessionString || '');
       
-      this.client = new TelegramApi(session, apiId, apiHash, {
+      this.client = new TelegramClient(session, apiId, apiHash, {
         deviceModel: 'AutoForwardX',
         systemVersion: '1.0',
         appVersion: '1.0.0',
@@ -62,21 +62,6 @@ export class TelegramClientWrapper {
         systemLangCode: 'en',
         connectionRetries: 5,
         floodSleepThreshold: 60
-      });
-
-      await this.client.start({
-        phoneNumber: async () => {
-          throw new Error('Phone number should be provided via sendOTP');
-        },
-        password: async () => {
-          throw new Error('Password should be handled separately');
-        },
-        phoneCode: async () => {
-          throw new Error('Phone code should be provided via verifyOTP');
-        },
-        onError: (err: any) => {
-          console.error('Telegram client error:', err);
-        },
       });
 
       console.log('Telegram client initialized successfully');
@@ -101,6 +86,9 @@ export class TelegramClientWrapper {
       const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
       console.log('Sending OTP to:', cleanPhone);
 
+      // Connect to Telegram first
+      await this.client.connect();
+
       const result = await this.client.invoke(
         new Api.auth.SendCode({
           phoneNumber: cleanPhone,
@@ -114,7 +102,13 @@ export class TelegramClientWrapper {
         })
       );
 
-      this.phoneCodeHash = result.phoneCodeHash;
+      // Extract phoneCodeHash from result
+      let phoneCodeHash = '';
+      if ('phoneCodeHash' in result) {
+        phoneCodeHash = result.phoneCodeHash;
+      }
+
+      this.phoneCodeHash = phoneCodeHash;
 
       // Save session to database
       await db.update(telegramSessions)
@@ -125,13 +119,13 @@ export class TelegramClientWrapper {
         })
         .where(eq(telegramSessions.id, this.sessionId));
 
-      console.log('OTP sent successfully, phoneCodeHash:', result.phoneCodeHash);
+      console.log('OTP sent successfully, phoneCodeHash:', phoneCodeHash);
 
       return {
         success: true,
         message: 'OTP sent successfully',
         sessionId: this.sessionId,
-        phoneCodeHash: result.phoneCodeHash,
+        phoneCodeHash: phoneCodeHash,
       };
 
     } catch (error: any) {
@@ -157,20 +151,29 @@ export class TelegramClientWrapper {
 
       console.log('Verifying OTP with code:', code);
 
+      const sessionData = await db.select().from(telegramSessions).where(eq(telegramSessions.id, this.sessionId));
+      const phoneNumber = sessionData[0]?.phoneNumber || '';
+
       const result = await this.client.invoke(
         new Api.auth.SignIn({
-          phoneNumber: (await db.select().from(telegramSessions).where(eq(telegramSessions.id, this.sessionId)))[0]?.phoneNumber || '',
+          phoneNumber: phoneNumber,
           phoneCodeHash: hashToUse,
           phoneCode: code,
         })
       );
+
+      let accountName = '';
+      if ('user' in result && result.user) {
+        const user = result.user as any;
+        accountName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      }
 
       // Save successful session
       await db.update(telegramSessions)
         .set({
           sessionString: this.client.session.save() as any,
           isActive: true,
-          accountName: result.user ? `${result.user.firstName} ${result.user.lastName || ''}`.trim() : null,
+          accountName: accountName || null,
           lastHealthCheck: new Date(),
           updatedAt: new Date(),
         })
@@ -205,14 +208,15 @@ export class TelegramClientWrapper {
 
       for (const dialog of dialogs) {
         if (dialog.isChannel || dialog.isGroup) {
+          const entity = dialog.entity as any;
           channels.push({
             id: dialog.id?.toString() || '',
             title: dialog.title || '',
-            username: dialog.entity.username || undefined,
+            username: entity?.username || undefined,
             type: dialog.isChannel ? 'channel' : dialog.isGroup ? 'group' : 'supergroup',
-            participantCount: dialog.entity.participantsCount || undefined,
+            participantCount: entity?.participantsCount || undefined,
             isChannel: dialog.isChannel,
-            isMegagroup: dialog.entity.megagroup || false,
+            isMegagroup: entity?.megagroup || false,
           });
         }
       }
@@ -244,21 +248,22 @@ export class TelegramClientWrapper {
         await this.client.disconnect();
         this.client = null;
       }
-      TelegramClient.instances.delete(this.sessionId);
+      RealTelegramClient.instances.delete(this.sessionId);
     } catch (error) {
       console.error('Failed to disconnect:', error);
     }
   }
 
   static async disconnectAll(): Promise<void> {
-    for (const instance of TelegramClient.instances.values()) {
+    const instances = Array.from(RealTelegramClient.instances.values());
+    for (const instance of instances) {
       await instance.disconnect();
     }
-    TelegramClient.instances.clear();
+    RealTelegramClient.instances.clear();
   }
 }
 
-export const telegramClientManager = {
+export const telegramClient = {
   async createSession(userId: number, phoneNumber: string): Promise<number> {
     const [session] = await db.insert(telegramSessions).values({
       userId,
@@ -272,8 +277,8 @@ export const telegramClientManager = {
     return session.id;
   },
 
-  async getClient(sessionId: number, userId: number): Promise<TelegramClient> {
-    return await TelegramClient.getInstance(sessionId, userId);
+  async getClient(sessionId: number, userId: number): Promise<RealTelegramClient> {
+    return await RealTelegramClient.getInstance(sessionId, userId);
   },
 
   async healthCheckAll(): Promise<void> {
@@ -281,7 +286,7 @@ export const telegramClientManager = {
     
     for (const session of sessions) {
       try {
-        const client = await TelegramClient.getInstance(session.id, session.userId);
+        const client = await RealTelegramClient.getInstance(session.id, session.userId);
         const isHealthy = await client.checkHealth();
         
         await db.update(telegramSessions)
