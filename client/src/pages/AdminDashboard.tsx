@@ -61,11 +61,34 @@ interface User {
 }
 
 interface SystemHealth {
-  database: { status: 'healthy' | 'warning' | 'error'; latency: number };
-  queue: { status: 'healthy' | 'warning' | 'error'; size: number; processing: boolean };
-  telegram: { status: 'healthy' | 'warning' | 'error'; activeSessions: number };
-  memory: { usage: number; limit: number };
-  cpu: { usage: number };
+  status: string;
+  timestamp: string;
+  services: {
+    database: string;
+    telegram: string;
+    queue: {
+      pending: number;
+      processing: number;
+      completed: number;
+      failed: number;
+    };
+    sessions: {
+      totalSessions: number;
+      healthySessions: number;
+      unhealthySessions: number;
+      averageErrorRate: number;
+    };
+    errors: {
+      total: number;
+      resolved: number;
+      unresolved: number;
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+      autoRecoverable: number;
+    };
+  };
 }
 
 export default function AdminDashboard() {
@@ -89,10 +112,12 @@ export default function AdminDashboard() {
     queryFn: () => adminApiRequest('GET', '/api/admin/dashboard'),
   });
 
-  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
+  const { data: usersResponse, isLoading: usersLoading } = useQuery<{users: User[], pagination: any}>({
     queryKey: ['/api/admin/users'],
     queryFn: () => adminApiRequest('GET', '/api/admin/users'),
   });
+
+  const users = usersResponse?.users || [];
 
   const { data: systemHealth, isLoading: healthLoading } = useQuery<SystemHealth>({
     queryKey: ['/api/admin/system/health'],
@@ -100,10 +125,12 @@ export default function AdminDashboard() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const { data: errors, isLoading: errorsLoading } = useQuery<any[]>({
+  const { data: errorsResponse, isLoading: errorsLoading } = useQuery<{errors: any[]}>({
     queryKey: ['/api/admin/errors'],
     queryFn: () => adminApiRequest('GET', '/api/admin/errors'),
   });
+
+  const errors = errorsResponse?.errors || [];
 
   // Mutations for admin actions using admin authentication
   const pauseQueueMutation = useMutation({
@@ -252,7 +279,7 @@ export default function AdminDashboard() {
                   <DollarSign className="h-4 w-4 text-yellow-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">${stats?.revenue || 0}</div>
+                  <div className="text-2xl font-bold">${stats?.revenue?.monthlyRevenue || 0}</div>
                   <p className="text-xs text-gray-400">
                     Total earnings
                   </p>
@@ -273,23 +300,23 @@ export default function AdminDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Database</span>
-                      <div className={`flex items-center gap-1 ${getStatusColor(systemHealth?.database.status || 'error')}`}>
-                        {getStatusIcon(systemHealth?.database.status || 'error')}
-                        <span className="text-xs">{systemHealth?.database.latency || 0}ms</span>
+                      <div className={`flex items-center gap-1 ${getStatusColor(systemHealth?.services.database === 'connected' ? 'healthy' : 'error')}`}>
+                        {getStatusIcon(systemHealth?.services.database === 'connected' ? 'healthy' : 'error')}
+                        <span className="text-xs">{systemHealth?.services.database || 'unknown'}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Queue</span>
-                      <div className={`flex items-center gap-1 ${getStatusColor(systemHealth?.queue.status || 'error')}`}>
-                        {getStatusIcon(systemHealth?.queue.status || 'error')}
-                        <span className="text-xs">{systemHealth?.queue.size || 0} items</span>
+                      <div className={`flex items-center gap-1 ${getStatusColor('healthy')}`}>
+                        {getStatusIcon('healthy')}
+                        <span className="text-xs">{systemHealth?.services.queue.pending || 0} pending</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Telegram API</span>
-                      <div className={`flex items-center gap-1 ${getStatusColor(systemHealth?.telegram.status || 'error')}`}>
-                        {getStatusIcon(systemHealth?.telegram.status || 'error')}
-                        <span className="text-xs">{systemHealth?.telegram.activeSessions || 0} sessions</span>
+                      <div className={`flex items-center gap-1 ${getStatusColor(systemHealth?.services.telegram === 'active' ? 'healthy' : 'error')}`}>
+                        {getStatusIcon(systemHealth?.services.telegram === 'active' ? 'healthy' : 'error')}
+                        <span className="text-xs">{systemHealth?.services.telegram || 'unknown'}</span>
                       </div>
                     </div>
                   </div>
@@ -297,21 +324,21 @@ export default function AdminDashboard() {
                   <div className="space-y-4">
                     <div>
                       <div className="flex justify-between text-sm mb-1">
-                        <span>Memory Usage</span>
-                        <span>{Math.round((systemHealth?.memory.usage || 0) / 1024 / 1024)}MB</span>
+                        <span>Total Errors</span>
+                        <span>{systemHealth?.services.errors.total || 0}</span>
                       </div>
                       <Progress 
-                        value={((systemHealth?.memory.usage || 0) / (systemHealth?.memory.limit || 1)) * 100} 
+                        value={systemHealth?.services.errors.total ? (systemHealth.services.errors.resolved / systemHealth.services.errors.total) * 100 : 0} 
                         className="h-2"
                       />
                     </div>
                     <div>
                       <div className="flex justify-between text-sm mb-1">
-                        <span>CPU Usage</span>
-                        <span>{systemHealth?.cpu.usage || 0}%</span>
+                        <span>Sessions Status</span>
+                        <span>{systemHealth?.services.sessions.healthySessions || 0}/{systemHealth?.services.sessions.totalSessions || 0}</span>
                       </div>
                       <Progress 
-                        value={systemHealth?.cpu.usage || 0} 
+                        value={systemHealth?.services.sessions.totalSessions ? (systemHealth.services.sessions.healthySessions / systemHealth.services.sessions.totalSessions) * 100 : 0} 
                         className="h-2"
                       />
                     </div>
