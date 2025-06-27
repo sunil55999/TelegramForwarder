@@ -4,6 +4,11 @@ import { storage } from "./storage";
 import { telegramClient } from "./telegram-client";
 import { sessionManager } from "./session-manager";
 import { queueManager } from "./queue-manager";
+import { paymentGateway } from "./payment-gateway";
+import { channelManager } from "./channel-manager";
+import { errorHandler } from "./error-handler";
+import { registerAdminRoutes } from "./admin-routes";
+import { registerBotRoutes } from "./bot-routes";
 import { 
   insertUserSchema, 
   insertForwardingPairSchema, 

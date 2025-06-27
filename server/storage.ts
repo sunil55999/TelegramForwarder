@@ -69,6 +69,22 @@ export interface IStorage {
   getActivityLogs(userId: number, limit?: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
 
+  // Content filter operations
+  getContentFilters(userId: number, forwardingPairId?: number): Promise<ContentFilter[]>;
+  createContentFilter(filter: InsertContentFilter): Promise<ContentFilter>;
+  deleteContentFilter(id: number, userId: number): Promise<boolean>;
+
+  // Payment operations
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  getPayment(paymentId: string): Promise<Payment | undefined>;
+  updatePayment(paymentId: string, updates: Partial<Payment>): Promise<Payment | undefined>;
+  getUsersByPlan(plan: string): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
+  getAllTelegramSessions(): Promise<TelegramSession[]>;
+  getAllForwardingPairs(): Promise<ForwardingPair[]>;
+  getTelegramSessionById(id: number): Promise<TelegramSession | undefined>;
+  getForwardingPairById(id: number): Promise<ForwardingPair | undefined>;
+
   // Dashboard stats
   getDashboardStats(userId: number): Promise<{
     activePairs: number;
@@ -344,6 +360,71 @@ export class DatabaseStorage implements IStorage {
       successRate,
       connectedAccounts: connectedAccountsResult?.count || 0,
     };
+  }
+
+  // Content filter operations
+  async getContentFilters(userId: number, forwardingPairId?: number): Promise<ContentFilter[]> {
+    if (forwardingPairId) {
+      return await db.select().from(contentFilters)
+        .where(and(eq(contentFilters.userId, userId), eq(contentFilters.forwardingPairId, forwardingPairId)));
+    }
+    return await db.select().from(contentFilters).where(eq(contentFilters.userId, userId));
+  }
+
+  async createContentFilter(filter: InsertContentFilter): Promise<ContentFilter> {
+    const [newFilter] = await db.insert(contentFilters).values(filter).returning();
+    return newFilter;
+  }
+
+  async deleteContentFilter(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(contentFilters)
+      .where(and(eq(contentFilters.id, id), eq(contentFilters.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Payment operations
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [newPayment] = await db.insert(payments).values(payment).returning();
+    return newPayment;
+  }
+
+  async getPayment(paymentId: string): Promise<Payment | undefined> {
+    const [payment] = await db.select().from(payments).where(eq(payments.paymentId, paymentId));
+    return payment || undefined;
+  }
+
+  async updatePayment(paymentId: string, updates: Partial<Payment>): Promise<Payment | undefined> {
+    const [updatedPayment] = await db.update(payments)
+      .set(updates)
+      .where(eq(payments.paymentId, paymentId))
+      .returning();
+    return updatedPayment || undefined;
+  }
+
+  async getUsersByPlan(plan: string): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.plan, plan));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async getAllTelegramSessions(): Promise<TelegramSession[]> {
+    return await db.select().from(telegramSessions);
+  }
+
+  async getAllForwardingPairs(): Promise<ForwardingPair[]> {
+    return await db.select().from(forwardingPairs);
+  }
+
+  async getTelegramSessionById(id: number): Promise<TelegramSession | undefined> {
+    const [session] = await db.select().from(telegramSessions).where(eq(telegramSessions.id, id));
+    return session || undefined;
+  }
+
+  async getForwardingPairById(id: number): Promise<ForwardingPair | undefined> {
+    const [pair] = await db.select().from(forwardingPairs).where(eq(forwardingPairs.id, id));
+    return pair || undefined;
   }
 }
 

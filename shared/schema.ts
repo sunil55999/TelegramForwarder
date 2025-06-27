@@ -9,6 +9,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   plan: text("plan").notNull().default("free"), // free, pro, business
+  planExpiryDate: timestamp("plan_expiry_date"),
+  watermarkConfig: jsonb("watermark_config"),
   telegramAccounts: jsonb("telegram_accounts").default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -86,9 +88,38 @@ export const activityLogs = pgTable("activity_logs", {
   forwardingPairId: integer("forwarding_pair_id").references(() => forwardingPairs.id),
   telegramSessionId: integer("telegram_session_id").references(() => telegramSessions.id),
   type: text("type").notNull(), // message_forwarded, pair_created, pair_paused, etc.
+  action: text("action").notNull(), // for backward compatibility with payment system
   message: text("message").notNull(),
+  details: text("details"), // additional details field
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const contentFilters = pgTable("content_filters", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  forwardingPairId: integer("forwarding_pair_id").references(() => forwardingPairs.id),
+  type: text("type").notNull(), // text, image, keyword, media
+  pattern: text("pattern").notNull(),
+  action: text("action").notNull(), // block, modify, watermark
+  replacement: text("replacement"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  paymentId: text("payment_id").notNull().unique(),
+  planId: text("plan_id").notNull(),
+  amount: integer("amount").notNull(), // amount in cents
+  currency: text("currency").notNull().default("USD"),
+  status: text("status").notNull().default("pending"), // pending, completed, failed, refunded
+  paymentMethod: text("payment_method").notNull(), // paypal, crypto
+  transactionId: text("transaction_id"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
 });
 
 // Relations
@@ -98,6 +129,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   activityLogs: many(activityLogs),
   blockedSentences: many(blockedSentences),
   blockedImages: many(blockedImages),
+  contentFilters: many(contentFilters),
+  payments: many(payments),
 }));
 
 export const telegramSessionsRelations = relations(telegramSessions, ({ one, many }) => ({
@@ -162,6 +195,17 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
   createdAt: true,
 });
 
+export const insertContentFilterSchema = createInsertSchema(contentFilters).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -177,3 +221,7 @@ export type InsertForwardingQueue = z.infer<typeof insertForwardingQueueSchema>;
 export type ForwardingQueue = typeof forwardingQueue.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertContentFilter = z.infer<typeof insertContentFilterSchema>;
+export type ContentFilter = typeof contentFilters.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Payment = typeof payments.$inferSelect;
