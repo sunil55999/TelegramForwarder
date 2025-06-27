@@ -1,0 +1,114 @@
+📄 AI Prompt for AutoForwardX Development
+Project Name: AutoForwardX
+Platform: Telegram Auto-Forwarding Bot with Web Dashboard and Admin Panel
+
+🎯 Objective:
+We want to develop a fully robust, multi-account, self-healing Telegram auto-forwarding system that offers:
+
+Seamless, real-time forwarding of text, media, and messages from public, private, and restricted Telegram channels.
+
+Multi-user and multi-account support.
+
+Advanced filtering, smart automation, customizable delays, real-time error handling, and cross-device management.
+
+✅ Key Requirements:
+1. Core Features:
+Forward from all Telegram sources (including save-only/restricted channels).
+
+Chain forwarding support (A ➜ B ➜ C message flows).
+
+Copy mode: Forward as a new message (hide source tags).
+
+Global and per-pair custom delay control.
+
+Real-time sync for edits and deletions.
+
+History cloning in limited batches.
+
+Silent forwarding option.
+
+2. User Management:
+Multi-account support (one user can manage multiple Telegram accounts).
+
+Each user can manage all forwarding pairs via web dashboard and Telegram bot.
+
+Handle 30+ active users concurrently.
+
+Forwarding pair limits:
+
+Free Plan: 3 Pairs
+
+Pro Plan: 15 Pairs
+
+Business Plan: 50 Pairs
+
+3. Admin Panel:
+Real-time system monitoring (sessions, tasks, errors).
+
+Self-healing system for auto-fixing common errors.
+
+Manual error fix options from the admin dashboard.
+
+Manage users, plans, sessions, and forwarding tasks.
+
+Send custom promotional messages to all Free Plan users' destination channels.
+
+SEO management tools:
+
+Sitemap management
+
+Meta tag and schema editor
+
+Blog publishing system for Telegram-related keywords
+
+Google Search Console API integration
+
+Page speed tracking and optimization tools
+
+4. UI & Theme Requirements:
+Web dashboard and landing page should use Tailwind CSS with a modern Dark Theme design.
+
+Dashboard must support:
+
+Drag-and-drop forwarding rule builder
+
+Multi-account session management
+
+Real-time logs and system status
+
+Fully mobile-friendly interface.
+
+5. Backend Requirements:
+Backend must be developed using Python (Flask or FastAPI recommended).
+
+Backend should handle:
+
+Telegram session management (via Telethon or Pyrogram)
+
+Async queues for rate-limited, safe message forwarding
+
+Database management for users, tasks, and sessions
+
+Admin control logic and payment verification
+
+Database: SQLite (initial), scalable to PostgreSQL if needed.
+
+Priority on building a robust, self-healing backend that automatically fixes common session and forwarding errors.
+
+6. Payment System:
+Support PayPal and Crypto payments via NowPayments gateway.
+
+Subscription pricing in USD:
+
+Free Plan: $0
+
+Pro Plan: $3.50/month
+
+Business Plan: $9.50/month
+
+7. User Safety & Performance:
+No user should face critical errors.
+
+Must have session recovery, task auto-restart, and intelligent queue management.
+
+Strong concurrency handling for 30+ simultaneous users.
