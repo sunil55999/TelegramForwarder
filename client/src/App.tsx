@@ -11,6 +11,7 @@ import Pricing from "@/pages/pricing";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import ForwardingPairs from "@/pages/forwarding-pairs";
+import AdminDashboard from "@/pages/AdminDashboard";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -47,6 +48,11 @@ function Router() {
       <Route path="/forwarding-pairs">
         <ProtectedRoute>
           <ForwardingPairs />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute>
+          <AdminDashboard />
         </ProtectedRoute>
       </Route>
       <Route component={NotFound} />
