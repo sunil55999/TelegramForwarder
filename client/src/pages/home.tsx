@@ -138,9 +138,9 @@ export default function Home() {
               <span className="text-xl font-bold text-white">AutoForwardX</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-              <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
-              <Link href="/features" className="text-gray-300 hover:text-white transition-colors">Learn More</Link>
+              <Link href="/features" className="text-gray-300 hover:text-white transition-colors">Features</Link>
+              <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</Link>
+              <a href="#features" className="text-gray-300 hover:text-white transition-colors">Learn More</a>
               <Link href="/login">
                 <Button className="bg-primary hover:bg-primary/90">
                   Login with Telegram

@@ -114,6 +114,9 @@ The application uses three main entities:
 ✓ Telegram Authentication: Multi-step phone verification flow with country code selection
 ✓ Updated Routing: Added public marketing pages alongside protected dashboard
 ✓ Payment Integration: Clear presentation of PayPal and crypto payment options
+✓ Feature Comparison Table: Interactive table showing all features across Free/Pro/Business plans
+✓ Dedicated Pricing Page: Complete pricing page with FAQ section and payment methods
+✓ Navigation Enhancement: Added pricing page links across all marketing pages
 
 ## User Preferences
 

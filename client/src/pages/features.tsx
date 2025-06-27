@@ -324,7 +324,7 @@ export default function Features() {
             </Link>
             <div className="hidden md:flex items-center space-x-8">
               <Link href="/" className="text-gray-300 hover:text-white transition-colors">Home</Link>
-              <Link href="/#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</Link>
+              <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</Link>
               <Link href="/login">
                 <Button className="bg-primary hover:bg-primary/90">
                   Login with Telegram

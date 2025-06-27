@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Features from "@/pages/features";
+import Pricing from "@/pages/pricing";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import ForwardingPairs from "@/pages/forwarding-pairs";
@@ -36,6 +37,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/features" component={Features} />
+      <Route path="/pricing" component={Pricing} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard">
         <ProtectedRoute>
