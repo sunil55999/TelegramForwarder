@@ -1,0 +1,118 @@
+🚀 Project Status:
+AutoForwardX is a Telegram Auto-Forwarding Platform that is approximately 60-65% complete.
+Core forwarding, queue management, user authentication, payment systems, and the main user dashboard have been implemented.
+The platform is stable but still missing essential admin controls, advanced management tools, and several critical user-facing and backend features.
+
+✅ Core Objective:
+The immediate goal is to complete the pending modules and build a fully controllable, self-healing, and admin-powered Telegram forwarding system.
+The final version must offer real-time task management, joined channel selection, admin-level controls, SEO growth tools, bot language flexibility, and third-party webhook integrations.
+
+📂 Detailed Feature Requirements:
+1. 🛠️ Admin Panel (High Priority, Currently Missing)
+Build a dark-themed, fully responsive Admin Dashboard using Tailwind CSS.
+
+Admin Controls Required:
+
+User Management: View, upgrade, suspend, and delete user accounts.
+
+Session Monitoring: Real-time health status for each user’s Telegram sessions.
+
+Manual Error Fixing: Force restart sessions, clear stuck queues, manually heal tasks.
+
+Global Announcements: Send system-wide promotional messages to all Free Plan users’ destination channels.
+
+Payment Management: View payment logs, update user plans manually.
+
+Security: IP Whitelisting for admin panel access.
+
+2. 📌 Joined Channel Selector (Currently Missing)
+Build a visual joined channel selector in the user dashboard:
+
+Search bar, multi-select dropdown, drag-and-drop UI.
+
+Real-time Telegram channel status (joined, restricted, left).
+
+Allow easy pairing between source and destination channels.
+
+3. ⏸️ Per-Pair Task Control (Missing)
+Implement the ability to:
+
+Pause, Resume, Stop individual forwarding pairs directly from the dashboard.
+
+Live status display (Active, Paused, Failed).
+
+Real-time editing of forwarding pair settings (source, destination, delay) without deletion.
+
+4. 📊 Bulk Management Tools (Missing)
+Build options to:
+
+Bulk add, bulk delete forwarding pairs.
+
+Bulk pause/resume forwarding tasks.
+
+5. 📑 Analytics & Reporting (Missing)
+Implement exportable reports in CSV and PDF format.
+
+Add custom analytics filters (by user, account, forwarding pair, time range).
+
+Display success rates, failure rates, and forwarding volume.
+
+6. 🔗 Webhook & API Key Management (Missing)
+Build Webhook Event Broadcasting:
+
+Allow forwarding events to be sent to external URLs in real time.
+
+Build API Key Management:
+
+Admin can generate secure API keys for third-party integration.
+
+Enforce API key rate limits based on user plan.
+
+7. 🚧 Telegram Anti-Ban System (Missing)
+Build auto-throttling logic:
+
+Monitor Telegram rate-limit signs.
+
+Auto-reduce forwarding speed when API limits are being approached.
+
+Add real-time system alerts for potential ban risks.
+
+8. 🌍 Telegram Bot Multi-Language Support (Missing)
+Build a /language command to switch Telegram bot language per user.
+
+Initially support English, Hindi, Spanish (expandable in future).
+
+9. 📝 SEO & Blog Management System (Missing)
+Build an SEO-optimized blog system controlled via the admin panel:
+
+Create, edit, delete blog posts.
+
+Build sitemap auto-generation and Google ping system.
+
+Add a meta tag and JSON-LD schema editor to boost SEO ranking.
+
+Integrate Google Search Console API to view indexing reports inside the admin panel.
+
+🛠️ Technical Requirements:
+Backend: Python (FastAPI preferred)
+
+Frontend: Tailwind CSS (Dark Theme, Mobile Responsive)
+
+Database: PostgreSQL (preferred) or SQLite
+
+Real-Time: Redis queue, async processing
+
+Payments: PayPal (USD) and NowPayments (Crypto)
+
+API: RESTful, async, fully documented
+
+Security: IP Whitelisting, API rate limits, session encryption
+
+✅ Critical Focus Points:
+The Admin Panel must offer real-time system control, user management, error resolution, and SEO growth tools.
+
+The User Dashboard must support visual joined channel selection, per-pair task management, and live status controls.
+
+Real-time system monitoring, webhook integrations, API key security, and Telegram anti-ban measures must be fully operational.
+
+All features must prioritize scalability, self-healing automation, and zero-downtime forwarding.
