@@ -1,4 +1,28 @@
-import { users, forwardingPairs, activityLogs, type User, type InsertUser, type ForwardingPair, type InsertForwardingPair, type ActivityLog, type InsertActivityLog } from "@shared/schema";
+import { 
+  users, 
+  telegramSessions,
+  forwardingPairs, 
+  activityLogs,
+  blockedSentences,
+  blockedImages,
+  forwardingQueue,
+  type User, 
+  type InsertUser, 
+  type TelegramSession,
+  type InsertTelegramSession,
+  type ForwardingPair, 
+  type InsertForwardingPair, 
+  type ActivityLog, 
+  type InsertActivityLog,
+  type BlockedSentence,
+  type InsertBlockedSentence,
+  type BlockedImage,
+  type InsertBlockedImage,
+  type ForwardingQueue,
+  type InsertForwardingQueue
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -8,12 +32,38 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
 
+  // Telegram session operations
+  getTelegramSessions(userId: number): Promise<TelegramSession[]>;
+  getTelegramSession(id: number, userId: number): Promise<TelegramSession | undefined>;
+  getTelegramSessionByPhone(phoneNumber: string, userId: number): Promise<TelegramSession | undefined>;
+  createTelegramSession(session: InsertTelegramSession): Promise<TelegramSession>;
+  updateTelegramSession(id: number, userId: number, updates: Partial<TelegramSession>): Promise<TelegramSession | undefined>;
+  deleteTelegramSession(id: number, userId: number): Promise<boolean>;
+  updateSessionHealth(id: number, userId: number, isHealthy: boolean): Promise<void>;
+
   // Forwarding pair operations
   getForwardingPairs(userId: number): Promise<ForwardingPair[]>;
   getForwardingPair(id: number, userId: number): Promise<ForwardingPair | undefined>;
   createForwardingPair(pair: InsertForwardingPair): Promise<ForwardingPair>;
   updateForwardingPair(id: number, userId: number, updates: Partial<ForwardingPair>): Promise<ForwardingPair | undefined>;
   deleteForwardingPair(id: number, userId: number): Promise<boolean>;
+  pauseForwardingPair(id: number, userId: number): Promise<boolean>;
+  resumeForwardingPair(id: number, userId: number): Promise<boolean>;
+
+  // Blocking operations
+  getBlockedSentences(userId: number, forwardingPairId?: number): Promise<BlockedSentence[]>;
+  createBlockedSentence(sentence: InsertBlockedSentence): Promise<BlockedSentence>;
+  deleteBlockedSentence(id: number, userId: number): Promise<boolean>;
+  getBlockedImages(userId: number, forwardingPairId?: number): Promise<BlockedImage[]>;
+  createBlockedImage(image: InsertBlockedImage): Promise<BlockedImage>;
+  deleteBlockedImage(id: number, userId: number): Promise<boolean>;
+
+  // Queue operations
+  addToQueue(queueItem: InsertForwardingQueue): Promise<ForwardingQueue>;
+  getQueueItems(status?: string, limit?: number): Promise<ForwardingQueue[]>;
+  updateQueueItem(id: number, updates: Partial<ForwardingQueue>): Promise<ForwardingQueue | undefined>;
+  completeQueueItem(id: number): Promise<boolean>;
+  failQueueItem(id: number, error: string): Promise<boolean>;
 
   // Activity log operations
   getActivityLogs(userId: number, limit?: number): Promise<ActivityLog[]>;
@@ -28,145 +78,273 @@ export interface IStorage {
   }>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private forwardingPairs: Map<number, ForwardingPair>;
-  private activityLogs: Map<number, ActivityLog>;
-  private currentUserId: number;
-  private currentPairId: number;
-  private currentLogId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.forwardingPairs = new Map();
-    this.activityLogs = new Map();
-    this.currentUserId = 1;
-    this.currentPairId = 1;
-    this.currentLogId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
+  // User operations
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { 
-      ...insertUser, 
-      id, 
-      createdAt: new Date(),
-      telegramAccounts: insertUser.telegramAccounts || [],
-    };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user || undefined;
   }
 
+  // Telegram session operations
+  async getTelegramSessions(userId: number): Promise<TelegramSession[]> {
+    return await db.select().from(telegramSessions).where(eq(telegramSessions.userId, userId));
+  }
+
+  async getTelegramSession(id: number, userId: number): Promise<TelegramSession | undefined> {
+    const [session] = await db.select().from(telegramSessions)
+      .where(and(eq(telegramSessions.id, id), eq(telegramSessions.userId, userId)));
+    return session || undefined;
+  }
+
+  async getTelegramSessionByPhone(phoneNumber: string, userId: number): Promise<TelegramSession | undefined> {
+    const [session] = await db.select().from(telegramSessions)
+      .where(and(eq(telegramSessions.phoneNumber, phoneNumber), eq(telegramSessions.userId, userId)));
+    return session || undefined;
+  }
+
+  async createTelegramSession(session: InsertTelegramSession): Promise<TelegramSession> {
+    const [newSession] = await db.insert(telegramSessions).values(session).returning();
+    return newSession;
+  }
+
+  async updateTelegramSession(id: number, userId: number, updates: Partial<TelegramSession>): Promise<TelegramSession | undefined> {
+    const [session] = await db.update(telegramSessions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(telegramSessions.id, id), eq(telegramSessions.userId, userId)))
+      .returning();
+    return session || undefined;
+  }
+
+  async deleteTelegramSession(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(telegramSessions)
+      .where(and(eq(telegramSessions.id, id), eq(telegramSessions.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async updateSessionHealth(id: number, userId: number, isHealthy: boolean): Promise<void> {
+    await db.update(telegramSessions)
+      .set({ 
+        isActive: isHealthy, 
+        lastHealthCheck: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(eq(telegramSessions.id, id), eq(telegramSessions.userId, userId)));
+  }
+
+  // Forwarding pair operations
   async getForwardingPairs(userId: number): Promise<ForwardingPair[]> {
-    return Array.from(this.forwardingPairs.values()).filter(
-      (pair) => pair.userId === userId,
-    );
+    return await db.select().from(forwardingPairs).where(eq(forwardingPairs.userId, userId));
   }
 
   async getForwardingPair(id: number, userId: number): Promise<ForwardingPair | undefined> {
-    const pair = this.forwardingPairs.get(id);
-    return pair && pair.userId === userId ? pair : undefined;
+    const [pair] = await db.select().from(forwardingPairs)
+      .where(and(eq(forwardingPairs.id, id), eq(forwardingPairs.userId, userId)));
+    return pair || undefined;
   }
 
-  async createForwardingPair(insertPair: InsertForwardingPair): Promise<ForwardingPair> {
-    const id = this.currentPairId++;
-    const pair: ForwardingPair = { 
-      ...insertPair, 
-      id, 
-      createdAt: new Date(),
-      lastActivity: null,
-    };
-    this.forwardingPairs.set(id, pair);
-    return pair;
+  async createForwardingPair(pair: InsertForwardingPair): Promise<ForwardingPair> {
+    const [newPair] = await db.insert(forwardingPairs).values(pair).returning();
+    return newPair;
   }
 
   async updateForwardingPair(id: number, userId: number, updates: Partial<ForwardingPair>): Promise<ForwardingPair | undefined> {
-    const pair = this.forwardingPairs.get(id);
-    if (!pair || pair.userId !== userId) return undefined;
-    
-    const updatedPair = { ...pair, ...updates };
-    this.forwardingPairs.set(id, updatedPair);
-    return updatedPair;
+    const [pair] = await db.update(forwardingPairs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(forwardingPairs.id, id), eq(forwardingPairs.userId, userId)))
+      .returning();
+    return pair || undefined;
   }
 
   async deleteForwardingPair(id: number, userId: number): Promise<boolean> {
-    const pair = this.forwardingPairs.get(id);
-    if (!pair || pair.userId !== userId) return false;
+    const result = await db.delete(forwardingPairs)
+      .where(and(eq(forwardingPairs.id, id), eq(forwardingPairs.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async pauseForwardingPair(id: number, userId: number): Promise<boolean> {
+    const result = await this.updateForwardingPair(id, userId, { isActive: false });
+    return result !== undefined;
+  }
+
+  async resumeForwardingPair(id: number, userId: number): Promise<boolean> {
+    const result = await this.updateForwardingPair(id, userId, { isActive: true });
+    return result !== undefined;
+  }
+
+  // Blocking operations
+  async getBlockedSentences(userId: number, forwardingPairId?: number): Promise<BlockedSentence[]> {
+    const conditions = [eq(blockedSentences.userId, userId)];
+    if (forwardingPairId) {
+      conditions.push(eq(blockedSentences.forwardingPairId, forwardingPairId));
+    }
+    return await db.select().from(blockedSentences).where(and(...conditions));
+  }
+
+  async createBlockedSentence(sentence: InsertBlockedSentence): Promise<BlockedSentence> {
+    const [newSentence] = await db.insert(blockedSentences).values(sentence).returning();
+    return newSentence;
+  }
+
+  async deleteBlockedSentence(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(blockedSentences)
+      .where(and(eq(blockedSentences.id, id), eq(blockedSentences.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getBlockedImages(userId: number, forwardingPairId?: number): Promise<BlockedImage[]> {
+    const conditions = [eq(blockedImages.userId, userId)];
+    if (forwardingPairId) {
+      conditions.push(eq(blockedImages.forwardingPairId, forwardingPairId));
+    }
+    return await db.select().from(blockedImages).where(and(...conditions));
+  }
+
+  async createBlockedImage(image: InsertBlockedImage): Promise<BlockedImage> {
+    const [newImage] = await db.insert(blockedImages).values(image).returning();
+    return newImage;
+  }
+
+  async deleteBlockedImage(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(blockedImages)
+      .where(and(eq(blockedImages.id, id), eq(blockedImages.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Queue operations
+  async addToQueue(queueItem: InsertForwardingQueue): Promise<ForwardingQueue> {
+    const [item] = await db.insert(forwardingQueue).values(queueItem).returning();
+    return item;
+  }
+
+  async getQueueItems(status?: string, limit: number = 100): Promise<ForwardingQueue[]> {
+    if (status) {
+      return await db.select().from(forwardingQueue)
+        .where(eq(forwardingQueue.status, status))
+        .orderBy(forwardingQueue.scheduledTime)
+        .limit(limit);
+    }
     
-    this.forwardingPairs.delete(id);
-    return true;
+    return await db.select().from(forwardingQueue)
+      .orderBy(forwardingQueue.scheduledTime)
+      .limit(limit);
   }
 
+  async updateQueueItem(id: number, updates: Partial<ForwardingQueue>): Promise<ForwardingQueue | undefined> {
+    const [item] = await db.update(forwardingQueue)
+      .set(updates)
+      .where(eq(forwardingQueue.id, id))
+      .returning();
+    return item || undefined;
+  }
+
+  async completeQueueItem(id: number): Promise<boolean> {
+    const result = await this.updateQueueItem(id, { 
+      status: 'completed', 
+      processedAt: new Date() 
+    });
+    return result !== undefined;
+  }
+
+  async failQueueItem(id: number, error: string): Promise<boolean> {
+    const [item] = await db.select().from(forwardingQueue).where(eq(forwardingQueue.id, id));
+    if (!item) return false;
+
+    const result = await this.updateQueueItem(id, { 
+      status: 'failed', 
+      lastError: error,
+      attempts: item.attempts + 1,
+      processedAt: new Date() 
+    });
+    return result !== undefined;
+  }
+
+  // Activity log operations
   async getActivityLogs(userId: number, limit: number = 50): Promise<ActivityLog[]> {
-    return Array.from(this.activityLogs.values())
-      .filter((log) => log.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, limit);
+    return await db.select().from(activityLogs)
+      .where(eq(activityLogs.userId, userId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
   }
 
-  async createActivityLog(insertLog: InsertActivityLog): Promise<ActivityLog> {
-    const id = this.currentLogId++;
-    const log: ActivityLog = { 
-      ...insertLog, 
-      id, 
-      createdAt: new Date(),
-      metadata: insertLog.metadata || {},
-    };
-    this.activityLogs.set(id, log);
-    return log;
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [newLog] = await db.insert(activityLogs).values(log).returning();
+    return newLog;
   }
 
+  // Dashboard stats
   async getDashboardStats(userId: number): Promise<{
     activePairs: number;
     messagesToday: number;
     successRate: number;
     connectedAccounts: number;
   }> {
-    const pairs = await this.getForwardingPairs(userId);
-    const activePairs = pairs.filter(pair => pair.isActive).length;
-    
-    const user = await this.getUser(userId);
-    const telegramAccounts = Array.isArray(user?.telegramAccounts) ? user.telegramAccounts : [];
-    
-    // Mock stats for demonstration
+    // Get active pairs count
+    const [activePairsResult] = await db.select({ count: count() })
+      .from(forwardingPairs)
+      .where(and(eq(forwardingPairs.userId, userId), eq(forwardingPairs.isActive, true)));
+
+    // Get connected accounts count
+    const [connectedAccountsResult] = await db.select({ count: count() })
+      .from(telegramSessions)
+      .where(and(eq(telegramSessions.userId, userId), eq(telegramSessions.isActive, true)));
+
+    // Get today's message count
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const todayLogs = Array.from(this.activityLogs.values())
-      .filter(log => log.userId === userId && log.createdAt >= today && log.type === 'message_forwarded');
+    const [messagesTodayResult] = await db.select({ count: count() })
+      .from(activityLogs)
+      .where(and(
+        eq(activityLogs.userId, userId),
+        eq(activityLogs.type, 'message_forwarded'),
+        sql`${activityLogs.createdAt} >= ${today}`
+      ));
+
+    // Calculate success rate from forwarding queue
+    const [totalMessages] = await db.select({ count: count() })
+      .from(forwardingQueue)
+      .innerJoin(forwardingPairs, eq(forwardingQueue.forwardingPairId, forwardingPairs.id))
+      .where(eq(forwardingPairs.userId, userId));
+
+    const [successfulMessages] = await db.select({ count: count() })
+      .from(forwardingQueue)
+      .innerJoin(forwardingPairs, eq(forwardingQueue.forwardingPairId, forwardingPairs.id))
+      .where(and(
+        eq(forwardingPairs.userId, userId),
+        eq(forwardingQueue.status, 'completed')
+      ));
+
+    const successRate = totalMessages?.count > 0 
+      ? Math.round((successfulMessages?.count || 0) / totalMessages.count * 100)
+      : 100;
 
     return {
-      activePairs,
-      messagesToday: todayLogs.length,
-      successRate: 98.5,
-      connectedAccounts: telegramAccounts.length,
+      activePairs: activePairsResult?.count || 0,
+      messagesToday: messagesTodayResult?.count || 0,
+      successRate,
+      connectedAccounts: connectedAccountsResult?.count || 0,
     };
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

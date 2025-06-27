@@ -1,14 +1,29 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertForwardingPairSchema, insertActivityLogSchema } from "@shared/schema";
+import { telegramClient } from "./telegram-client";
+import { sessionManager } from "./session-manager";
+import { queueManager } from "./queue-manager";
+import { 
+  insertUserSchema, 
+  insertForwardingPairSchema, 
+  insertTelegramSessionSchema,
+  insertBlockedSentenceSchema,
+  insertBlockedImageSchema,
+  type User 
+} from "@shared/schema";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
-// Middleware to verify JWT token
-const authenticateToken = async (req: any, res: any, next: any) => {
+// Auth middleware
+interface AuthRequest extends Request {
+  user?: User;
+}
+
+const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -30,6 +45,13 @@ const authenticateToken = async (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+
+  // Initialize services
+  await sessionManager.initialize();
+  await queueManager.initialize();
+  await telegramClient.initializeSessions();
+
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
@@ -51,21 +73,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
       });
 
-      // Create activity log
-      await storage.createActivityLog({
-        userId: user.id,
-        type: "user_registered",
-        message: "Account created successfully",
-      });
-
       const token = jwt.sign({ userId: user.id }, JWT_SECRET);
-      
-      res.json({
-        user: { ...user, password: undefined },
-        token,
+
+      res.json({ 
+        user: { ...user, password: undefined }, 
+        token 
       });
     } catch (error) {
-      res.status(400).json({ message: "Invalid data provided" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid input", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Registration failed" });
+      }
     }
   });
 
@@ -78,179 +97,472 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
       const token = jwt.sign({ userId: user.id }, JWT_SECRET);
-      
-      res.json({
-        user: { ...user, password: undefined },
-        token,
+
+      res.json({ 
+        user: { ...user, password: undefined }, 
+        token 
       });
     } catch (error) {
-      res.status(500).json({ message: "Server error" });
+      res.status(500).json({ message: "Login failed" });
     }
   });
 
-  // Protected routes
-  app.get("/api/user/profile", authenticateToken, async (req: any, res) => {
-    res.json({ ...req.user, password: undefined });
+  app.get("/api/auth/me", authenticateToken, async (req: AuthRequest, res) => {
+    res.json({ user: { ...req.user!, password: undefined } });
   });
 
-  app.get("/api/dashboard/stats", authenticateToken, async (req: any, res) => {
+  // Telegram Authentication Routes
+  app.post("/api/telegram/send-otp", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const stats = await storage.getDashboardStats(req.user.id);
-      res.json(stats);
+      const { phoneNumber, countryCode } = req.body;
+      
+      if (!phoneNumber || !countryCode) {
+        return res.status(400).json({ message: "Phone number and country code are required" });
+      }
+
+      const result = await telegramClient.sendOTP({ phoneNumber, countryCode });
+      res.json(result);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch stats" });
+      res.status(500).json({ message: "Failed to send OTP" });
     }
   });
 
-  // Forwarding pairs routes
-  app.get("/api/forwarding-pairs", authenticateToken, async (req: any, res) => {
+  app.post("/api/telegram/verify-otp", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const pairs = await storage.getForwardingPairs(req.user.id);
+      const { phoneNumber, otpCode } = req.body;
+      
+      if (!phoneNumber || !otpCode) {
+        return res.status(400).json({ message: "Phone number and OTP code are required" });
+      }
+
+      const result = await telegramClient.verifyOTP({
+        phoneNumber,
+        otpCode,
+        userId: req.user!.id
+      });
+
+      if (result.success && result.sessionId) {
+        await sessionManager.addSession(result.sessionId);
+        
+        await storage.createActivityLog({
+          userId: req.user!.id,
+          telegramSessionId: result.sessionId,
+          type: 'telegram_login',
+          message: `Successfully connected Telegram account ${result.accountName}`,
+          metadata: { phoneNumber }
+        });
+      }
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to verify OTP" });
+    }
+  });
+
+  // Telegram Session Management
+  app.get("/api/telegram/sessions", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const sessions = await storage.getTelegramSessions(req.user!.id);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch Telegram sessions" });
+    }
+  });
+
+  app.delete("/api/telegram/sessions/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      
+      await telegramClient.disconnectSession(sessionId, req.user!.id);
+      await sessionManager.removeSession(sessionId);
+      
+      const success = await storage.deleteTelegramSession(sessionId, req.user!.id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      await storage.createActivityLog({
+        userId: req.user!.id,
+        telegramSessionId: sessionId,
+        type: 'telegram_logout',
+        message: 'Telegram session disconnected',
+        metadata: { sessionId }
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to disconnect session" });
+    }
+  });
+
+  app.get("/api/telegram/sessions/:id/channels", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      
+      const session = await storage.getTelegramSession(sessionId, req.user!.id);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const channels = await telegramClient.getJoinedChannels(sessionId, req.user!.id);
+      res.json(channels);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch channels" });
+    }
+  });
+
+  app.get("/api/telegram/sessions/:id/health", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      
+      const session = await storage.getTelegramSession(sessionId, req.user!.id);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const health = sessionManager.getSessionHealth(sessionId);
+      const isHealthy = await sessionManager.triggerHealthCheck(sessionId);
+      
+      res.json({
+        isHealthy,
+        health,
+        lastCheck: health?.lastCheck,
+        errorCount: health?.errorCount || 0,
+        recoveryActions: sessionManager.getRecoveryActions(sessionId)
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check session health" });
+    }
+  });
+
+  // Forwarding Pair Management
+  app.get("/api/forwarding-pairs", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const pairs = await storage.getForwardingPairs(req.user!.id);
       res.json(pairs);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch forwarding pairs" });
     }
   });
 
-  app.post("/api/forwarding-pairs", authenticateToken, async (req: any, res) => {
+  app.post("/api/forwarding-pairs", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const pairData = insertForwardingPairSchema.parse({
         ...req.body,
-        userId: req.user.id,
+        userId: req.user!.id,
       });
-
-      // Check user's plan limits
-      const existingPairs = await storage.getForwardingPairs(req.user.id);
-      const planLimits = {
-        free: 3,
-        pro: 15,
-        business: 50,
-      };
-
-      const limit = planLimits[req.user.plan as keyof typeof planLimits] || 3;
-      if (existingPairs.length >= limit) {
-        return res.status(400).json({ 
-          message: `Plan limit reached. ${req.user.plan} plan allows ${limit} pairs.` 
-        });
+      
+      const session = await storage.getTelegramSession(pairData.telegramSessionId, req.user!.id);
+      if (!session) {
+        return res.status(400).json({ message: "Invalid Telegram session" });
       }
 
       const pair = await storage.createForwardingPair(pairData);
 
-      // Create activity log
       await storage.createActivityLog({
-        userId: req.user.id,
+        userId: req.user!.id,
         forwardingPairId: pair.id,
-        type: "pair_created",
-        message: `Forwarding pair created: ${pair.sourceChannel} → ${pair.destinationChannel}`,
+        telegramSessionId: pair.telegramSessionId,
+        type: 'pair_created',
+        message: `Created forwarding pair from ${pair.sourceChannel} to ${pair.destinationChannel}`,
+        metadata: { 
+          delay: pair.delay,
+          copyMode: pair.copyMode,
+          silentMode: pair.silentMode
+        }
       });
 
       res.json(pair);
     } catch (error) {
-      res.status(400).json({ message: "Invalid data provided" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid input", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create forwarding pair" });
+      }
     }
   });
 
-  app.patch("/api/forwarding-pairs/:id", authenticateToken, async (req: any, res) => {
+  app.put("/api/forwarding-pairs/:id", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
       
-      const pair = await storage.updateForwardingPair(id, req.user.id, updates);
+      const pair = await storage.updateForwardingPair(id, req.user!.id, updates);
       if (!pair) {
         return res.status(404).json({ message: "Forwarding pair not found" });
       }
 
-      // Create activity log
-      const action = updates.isActive === false ? "paused" : 
-                    updates.isActive === true ? "activated" : "updated";
-      
       await storage.createActivityLog({
-        userId: req.user.id,
+        userId: req.user!.id,
         forwardingPairId: pair.id,
-        type: `pair_${action}`,
-        message: `Forwarding pair ${action}: ${pair.sourceChannel} → ${pair.destinationChannel}`,
+        telegramSessionId: pair.telegramSessionId,
+        type: 'pair_updated',
+        message: `Updated forwarding pair settings`,
+        metadata: updates
       });
-
+      
       res.json(pair);
     } catch (error) {
       res.status(500).json({ message: "Failed to update forwarding pair" });
     }
   });
 
-  app.delete("/api/forwarding-pairs/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/forwarding-pairs/:id", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       
-      const pair = await storage.getForwardingPair(id, req.user.id);
+      const pair = await storage.getForwardingPair(id, req.user!.id);
       if (!pair) {
         return res.status(404).json({ message: "Forwarding pair not found" });
       }
 
-      const deleted = await storage.deleteForwardingPair(id, req.user.id);
-      if (!deleted) {
-        return res.status(500).json({ message: "Failed to delete forwarding pair" });
+      const success = await storage.deleteForwardingPair(id, req.user!.id);
+      
+      if (success) {
+        await storage.createActivityLog({
+          userId: req.user!.id,
+          forwardingPairId: id,
+          telegramSessionId: pair.telegramSessionId,
+          type: 'pair_deleted',
+          message: `Deleted forwarding pair from ${pair.sourceChannel} to ${pair.destinationChannel}`,
+          metadata: { pairId: id }
+        });
       }
-
-      // Create activity log
-      await storage.createActivityLog({
-        userId: req.user.id,
-        type: "pair_deleted",
-        message: `Forwarding pair deleted: ${pair.sourceChannel} → ${pair.destinationChannel}`,
-      });
-
-      res.json({ success: true });
+      
+      res.json({ success });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete forwarding pair" });
     }
   });
 
-  // Activity logs route
-  app.get("/api/activity-logs", authenticateToken, async (req: any, res) => {
+  app.post("/api/forwarding-pairs/:id/pause", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.pauseForwardingPair(id, req.user!.id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Forwarding pair not found" });
+      }
+
+      await storage.createActivityLog({
+        userId: req.user!.id,
+        forwardingPairId: id,
+        type: 'pair_paused',
+        message: 'Forwarding pair paused',
+        metadata: { pairId: id }
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to pause forwarding pair" });
+    }
+  });
+
+  app.post("/api/forwarding-pairs/:id/resume", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.resumeForwardingPair(id, req.user!.id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Forwarding pair not found" });
+      }
+
+      await storage.createActivityLog({
+        userId: req.user!.id,
+        forwardingPairId: id,
+        type: 'pair_resumed',
+        message: 'Forwarding pair resumed',
+        metadata: { pairId: id }
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to resume forwarding pair" });
+    }
+  });
+
+  // Blocking Management
+  app.get("/api/blocked-sentences", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const forwardingPairId = req.query.forwardingPairId ? parseInt(req.query.forwardingPairId as string) : undefined;
+      const sentences = await storage.getBlockedSentences(req.user!.id, forwardingPairId);
+      res.json(sentences);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch blocked sentences" });
+    }
+  });
+
+  app.post("/api/blocked-sentences", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const sentenceData = insertBlockedSentenceSchema.parse({
+        ...req.body,
+        userId: req.user!.id,
+      });
+      
+      const sentence = await storage.createBlockedSentence(sentenceData);
+      res.json(sentence);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid input", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create blocked sentence" });
+      }
+    }
+  });
+
+  app.delete("/api/blocked-sentences/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteBlockedSentence(id, req.user!.id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Blocked sentence not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete blocked sentence" });
+    }
+  });
+
+  app.get("/api/blocked-images", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const forwardingPairId = req.query.forwardingPairId ? parseInt(req.query.forwardingPairId as string) : undefined;
+      const images = await storage.getBlockedImages(req.user!.id, forwardingPairId);
+      res.json(images);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch blocked images" });
+    }
+  });
+
+  app.post("/api/blocked-images", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const imageData = insertBlockedImageSchema.parse({
+        ...req.body,
+        userId: req.user!.id,
+      });
+      
+      const image = await storage.createBlockedImage(imageData);
+      res.json(image);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid input", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create blocked image" });
+      }
+    }
+  });
+
+  app.delete("/api/blocked-images/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteBlockedImage(id, req.user!.id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Blocked image not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete blocked image" });
+    }
+  });
+
+  // Queue Management
+  app.get("/api/queue/stats", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const stats = await queueManager.getQueueStats();
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch queue stats" });
+    }
+  });
+
+  app.post("/api/queue/pause", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      queueManager.pauseProcessing();
+      res.json({ success: true, message: "Queue processing paused" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to pause queue processing" });
+    }
+  });
+
+  app.post("/api/queue/resume", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      queueManager.resumeProcessing();
+      res.json({ success: true, message: "Queue processing resumed" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to resume queue processing" });
+    }
+  });
+
+  app.post("/api/queue/clear-failed", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const clearedCount = await queueManager.clearFailedItems();
+      res.json({ success: true, clearedCount });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to clear failed items" });
+    }
+  });
+
+  // Activity and Dashboard
+  app.get("/api/activity-logs", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
-      const logs = await storage.getActivityLogs(req.user.id, limit);
+      const logs = await storage.getActivityLogs(req.user!.id, limit);
       res.json(logs);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 
-  // Mock Telegram operations
-  app.post("/api/telegram/forward-message", authenticateToken, async (req: any, res) => {
+  app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const { forwardingPairId, messageId } = req.body;
+      const stats = await storage.getDashboardStats(req.user!.id);
+      const queueStats = await queueManager.getQueueStats();
+      const sessionStats = sessionManager.getSessionStats();
       
-      const pair = await storage.getForwardingPair(forwardingPairId, req.user.id);
-      if (!pair || !pair.isActive) {
-        return res.status(400).json({ message: "Invalid or inactive forwarding pair" });
-      }
-
-      // Mock successful forward
-      await storage.createActivityLog({
-        userId: req.user.id,
-        forwardingPairId: pair.id,
-        type: "message_forwarded",
-        message: `Message forwarded successfully`,
-        metadata: { messageId, delay: pair.delay },
+      res.json({
+        ...stats,
+        queue: queueStats,
+        sessions: sessionStats
       });
-
-      // Update last activity
-      await storage.updateForwardingPair(pair.id, req.user.id, {
-        lastActivity: new Date(),
-      });
-
-      res.json({ success: true, messageId });
     } catch (error) {
-      res.status(500).json({ message: "Failed to forward message" });
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
 
-  const httpServer = createServer(app);
+  // System Health
+  app.get("/api/health", async (req, res) => {
+    try {
+      const queueStats = await queueManager.getQueueStats();
+      const sessionStats = sessionManager.getSessionStats();
+      
+      res.json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        services: {
+          database: "connected",
+          telegram: "active",
+          queue: queueStats,
+          sessions: sessionStats
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "unhealthy",
+        timestamp: new Date().toISOString(),
+        error: "Service health check failed"
+      });
+    }
+  });
+
   return httpServer;
 }
