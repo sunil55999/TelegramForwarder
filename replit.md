@@ -117,6 +117,9 @@ The application uses three main entities:
 ✓ Feature Comparison Table: Interactive table showing all features across Free/Pro/Business plans
 ✓ Dedicated Pricing Page: Complete pricing page with FAQ section and payment methods
 ✓ Navigation Enhancement: Added pricing page links across all marketing pages
+✓ Enhanced Forwarding UI: Three-panel layout with channel selector and improved status indicators
+✓ Channel Management: Multi-select interface with search, status badges, and drag-drop functionality
+✓ Advanced Forwarding Cards: Enhanced cards with status indicators, quick actions, and detailed metrics
 
 ## User Preferences
 
